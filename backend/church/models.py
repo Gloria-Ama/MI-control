@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 
+
 class CommunauteCulte(models.Model):
     nom = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
@@ -129,33 +130,6 @@ class Responsable(models.Model):
     ]
 
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-
-    role = models.CharField(
-        max_length=50,
-        choices=ROLE_CHOICES
-    )
-
-    communaute_culte = models.ForeignKey(
-        CommunauteCulte,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True
-    )
-
-    departement = models.ForeignKey(
-        Departement,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True
-    )
-
-    mot_de_passe_change = models.BooleanField(default=False)
-    actif = models.BooleanField(default=True)
-
-    def __str__(self):
-        return f"{self.user.email} - {self.role}"
-
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
     role = models.CharField(max_length=50, choices=ROLE_CHOICES)
 
     communaute_culte = models.ForeignKey(
@@ -177,3 +151,5 @@ class Responsable(models.Model):
 
     def __str__(self):
         return f"{self.user.email} - {self.role}"
+
+
