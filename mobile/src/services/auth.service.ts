@@ -1,14 +1,18 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { api } from "./api";
+    import AsyncStorage from "@react-native-async-storage/async-storage";
+    import { api } from "./api";
 
-export async function getProfilConnecte() {
+    export async function getProfilConnecte() {
     const token = await AsyncStorage.getItem("accessToken");
-    console.log("TOKEN =", token);
+
+    if (!token) {
+        throw new Error("Aucun token trouvé. Reconnexion nécessaire.");
+    }
+
     const response = await api.get("/me/", {
-    headers: {
+        headers: {
         Authorization: `Bearer ${token}`,
-    },
+        },
     });
 
     return response.data;
-}
+    }

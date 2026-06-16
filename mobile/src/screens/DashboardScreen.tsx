@@ -28,8 +28,12 @@
     }, []);
 
     async function chargerProfil() {
-        const data = await getProfilConnecte();
-        setProfil(data);
+        try {
+            const data = await getProfilConnecte();
+            setProfil(data);
+        } catch (error) {
+            console.log("Profil non chargé :", error);
+        }
     }
 
     async function chargerMembres() {

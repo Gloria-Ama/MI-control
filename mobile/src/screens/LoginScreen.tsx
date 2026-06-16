@@ -13,14 +13,12 @@
     export default function LoginScreen({ onLoginSuccess }: Props) {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
-
     async function seConnecter() {
         try {
         const response = await api.post("/login/", {
             username,
             password,
         });
-
         await AsyncStorage.setItem("token", response.data.access);
         await AsyncStorage.setItem("refreshToken", response.data.refresh);
         console.log("Connexion réussie :", response.data);
