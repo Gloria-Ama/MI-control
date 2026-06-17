@@ -31,31 +31,6 @@ class Departement(models.Model):
         return f"{self.nom} - {self.communaute_culte.nom}"
 
 
-class Visiteur(models.Model):
-    SEXE_CHOICES = [
-        ("feminin", "Féminin"),
-        ("masculin", "Masculin"),
-        ("autre", "Autre"),
-    ]
-    communaute_culte = models.ForeignKey(
-        CommunauteCulte,
-        on_delete=models.CASCADE,
-        related_name="visiteurs"
-    )
-    nom = models.CharField(max_length=150)
-    telephone = models.CharField(max_length=20)
-    email = models.EmailField(blank=True)
-    sexe = models.CharField(max_length=20, choices=SEXE_CHOICES, blank=True)
-    date_premiere_visite = models.DateField(auto_now_add=True)
-    nombre_visites = models.IntegerField(default=1)
-    notes = models.TextField(blank=True)
-    class Meta:
-        verbose_name = "Visiteur"
-        verbose_name_plural = "Visiteurs"
-    def __str__(self):
-        return self.nom
-
-
 class Membre(models.Model):
     STATUT_CHOICES = [
         ("actif", "Actif"),
@@ -124,6 +99,7 @@ class Presence(models.Model):
 class Responsable(models.Model):
     ROLE_CHOICES = [
         ("pasteur", "Pasteur"),
+        ("administrateur", "Administrateur"),
         ("tresoriere", "Trésorière"),
         ("secretaire", "Secrétaire"),
         ("responsable", "Responsable de département"),
@@ -153,3 +129,32 @@ class Responsable(models.Model):
         return f"{self.user.email} - {self.role}"
 
 
+class Visiteur(models.Model):
+    SEXE_CHOICES = [
+        ("feminin", "Féminin"),
+        ("masculin", "Masculin"),
+        ("autre", "Autre"),
+    ]
+    STATUT_CHOICES = [
+        ("nouveau", "Nouveau"),
+        ("contacte", "Contacté"),
+        ("en_suivi", "En suivi"),
+        ("integre", "Intégré"),
+        ("converti_membre", "Converti en membre"),
+    ]
+    communaute_culte = models.ForeignKey(CommunauteCulte, on_delete=models.CASCADE, related_name="visiteurs")
+    nom = models.CharField(max_length=150)
+    telephone = models.CharField(max_length=20)
+    email = models.EmailField(blank=True)
+    sexe = models.CharField(max_length=20, choices=SEXE_CHOICES, blank=True)
+    date_premiere_visite = models.DateField(auto_now_add=True)
+    nombre_visites = models.IntegerField(default=1)
+    statut = models.CharField(max_length=30, choices=STATUT_CHOICES, default="nouveau")
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = "Visiteur"
+        verbose_name_plural = "Visiteurs"
+
+    def __str__(self):
+        return self.nom

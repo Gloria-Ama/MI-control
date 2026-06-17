@@ -1,24 +1,64 @@
 from rest_framework import serializers
-
-from .models import (
-    Membre,
-    Departement,
-    Visiteur,
-    Presence,
-    Responsable,
-)
+from .models import CommunauteCulte, Membre, Departement, Visiteur, Presence, Responsable
 
 
-class MembreSerializer(serializers.ModelSerializer):
+class CommunauteCulteSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Membre
-        fields = "__all__"
+        model = CommunauteCulte
+        fields = ["id", "nom", "description"]
 
 
 class DepartementSerializer(serializers.ModelSerializer):
+    communaute_nom = serializers.CharField(source="communaute_culte.nom", read_only=True)
+
     class Meta:
         model = Departement
-        fields = "__all__"
+        fields = ["id", "nom", "description", "communaute_culte", "communaute_nom"]
+
+
+class MembreSerializer(serializers.ModelSerializer):
+    departement_nom = serializers.SerializerMethodField()
+    taux_presence = serializers.SerializerMethodField()
+    absences_recentes = serializers.SerializerMethodField()
+    communautes_culte = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=CommunauteCulte.objects.all(),
+    )
+    communautes_noms = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Membre
+        fields = [
+            "id", "nom", "telephone", "email", "sexe",
+            "date_anniversaire", "adresse", "departement",
+            "departement_nom", "date_integration", "statut",
+            "notes", "communautes_culte", "communautes_noms",
+            "taux_presence", "absences_recentes",
+        ]
+
+    def get_departement_nom(self, obj):
+        return obj.departement.nom if obj.departement else None
+
+    def get_communautes_noms(self, obj):
+        return [c.nom for c in obj.communautes_culte.all()]
+
+    def get_taux_presence(self, obj):
+        presences = obj.presences.all()
+        total = presences.count()
+        if total == 0:
+            return None
+        presents = presences.filter(present=True).count()
+        return round((presents / total) * 100)
+
+    def get_absences_recentes(self, obj):
+        presences = obj.presences.order_by("-date")[:5]
+        count = 0
+        for p in presences:
+            if not p.present:
+                count += 1
+            else:
+                break
+        return count
 
 
 class VisiteurSerializer(serializers.ModelSerializer):
@@ -28,30 +68,21 @@ class VisiteurSerializer(serializers.ModelSerializer):
 
 
 class PresenceSerializer(serializers.ModelSerializer):
+    membre_nom = serializers.CharField(source="membre.nom", read_only=True)
+
     class Meta:
         model = Presence
-        fields = "__all__"
+        fields = ["id", "membre", "membre_nom", "date", "present", "communaute_culte"]
 
 
 class ResponsableSerializer(serializers.ModelSerializer):
-    username = serializers.CharField(
-        source="user.username",
-        read_only=True,
-    )
-    email = serializers.EmailField(
-        source="user.email",
-        read_only=True,
-    )
+    username = serializers.CharField(source="user.username", read_only=True)
+    email = serializers.EmailField(source="user.email", read_only=True)
 
     class Meta:
         model = Responsable
         fields = [
-            "id",
-            "username",
-            "email",
-            "role",
-            "communaute_culte",
-            "departement",
-            "mot_de_passe_change",
-            "actif",
+            "id", "username", "email", "role",
+            "communaute_culte", "departement",
+            "mot_de_passe_change", "actif",
         ]

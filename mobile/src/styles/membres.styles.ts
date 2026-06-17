@@ -1,169 +1,175 @@
     import { StyleSheet } from "react-native";
 
-    export const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        padding: 22,
-        backgroundColor: "#F8F5F0",
+    const C = {
+    primaire: "#07074C",
+    accent: "#4F46E5",
+    fond: "#F8F5F0",
+    carte: "#FFFFFF",
+    texte: "#1E293B",
+    texteSec: "#64748B",
+    bordure: "#E2E8F0",
+    danger: "#EF4444",
+    dangerFond: "#FEF2F2",
+    succesFond: "#F0FDF4",
+    warningFond: "#FFFBEB",
+    };
+
+    export const s = StyleSheet.create({
+    safe: { flex: 1, backgroundColor: C.fond },
+
+    searchBar: {
+        backgroundColor: C.carte, padding: 12,
+        borderBottomWidth: 0.5, borderBottomColor: C.bordure,
+    },
+    searchInput: {
+        backgroundColor: C.fond, borderRadius: 12, padding: 12,
+        fontSize: 14, color: C.texte, borderWidth: 0.5, borderColor: C.bordure,
     },
 
-    title: {
-        fontSize: 30,
-        fontWeight: "bold",
-        color: "#1E293B",
-        marginBottom: 20,
+    compteLabel: { fontSize: 12, color: C.texteSec, marginBottom: 10 },
+    videTexte: {
+        color: C.texteSec, fontStyle: "italic",
+        textAlign: "center", marginTop: 30,
     },
 
-    input: {
-        backgroundColor: "#FFFFFF",
-        padding: 15,
-        borderRadius: 12,
-        marginBottom: 12,
-        fontSize: 16,
+    membreCard: {
+        backgroundColor: C.carte, borderRadius: 14, padding: 14,
+        flexDirection: "row", alignItems: "center", gap: 12,
+        marginBottom: 10, borderWidth: 0.5, borderColor: C.bordure,
+    },
+    avatar: {
+        width: 46, height: 46, borderRadius: 23,
+        alignItems: "center", justifyContent: "center", flexShrink: 0,
+    },
+    avatarText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+    membreNom: { fontSize: 15, fontWeight: "700", color: C.texte },
+    membreSub: { fontSize: 12, color: C.texteSec, marginTop: 2 },
+    alerte: { fontSize: 11, color: C.danger, marginTop: 3, fontWeight: "600" },
+
+    statutBadge: {
+        paddingVertical: 3, paddingHorizontal: 9, borderRadius: 99,
+        borderWidth: 0.5, borderColor: C.bordure, backgroundColor: C.fond,
+    },
+    statutTexte: { fontSize: 11, fontWeight: "600", color: C.texteSec },
+    badgeActif: { backgroundColor: C.succesFond, borderColor: "#86EFAC" },
+    badgeActifTexte: { color: "#065F46" },
+    badgeDanger: { backgroundColor: C.dangerFond, borderColor: "#FECACA" },
+    badgeDangerTexte: { color: "#991B1B" },
+    badgeNeutre: { backgroundColor: C.fond, borderColor: C.bordure },
+    badgeNeutreTexte: { color: C.texteSec },
+
+    fab: {
+        position: "absolute", bottom: 24, right: 20,
+        backgroundColor: C.primaire, borderRadius: 14,
+        paddingVertical: 14, paddingHorizontal: 24, elevation: 5,
+    },
+    fabText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+
+    detailHeader: {
+        backgroundColor: C.primaire, padding: 20,
+        alignItems: "center", paddingBottom: 28,
+    },
+    retourBtn: { alignSelf: "flex-start", marginBottom: 14 },
+    retourText: { color: "#94A3B8", fontSize: 15 },
+    detailAvatar: {
+        width: 68, height: 68, borderRadius: 34,
+        alignItems: "center", justifyContent: "center", marginBottom: 12,
+    },
+    detailAvatarText: { color: "#fff", fontWeight: "700", fontSize: 26 },
+    detailNom: { color: "#fff", fontSize: 20, fontWeight: "700" },
+    detailSub: { color: "#94A3B8", fontSize: 13, marginTop: 4 },
+
+    section: {
+        backgroundColor: C.carte, borderRadius: 14, padding: 14,
+        marginBottom: 12, borderWidth: 0.5, borderColor: C.bordure,
+    },
+    sectionTitre: {
+        fontSize: 11, fontWeight: "700", color: C.texteSec,
+        textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10,
     },
 
-    label: {
-        fontSize: 16,
-        fontWeight: "bold",
-        color: "#1E293B",
-        marginBottom: 10,
+    infoRow: {
+        flexDirection: "row", alignItems: "center",
+        paddingVertical: 7, borderBottomWidth: 0.5, borderBottomColor: "#F8FAFC",
+    },
+    infoIcone: { fontSize: 14, width: 26 },
+    infoLabel: { fontSize: 12, color: C.texteSec, width: 90 },
+    infoValeur: { flex: 1, fontSize: 13, color: C.texte, fontWeight: "500" },
+
+    presenceDot: { width: 22, height: 22, borderRadius: 6 },
+    presentDot: { backgroundColor: "#D1FAE5" },
+    absentDot: { backgroundColor: "#FEE2E2" },
+    alerteBox: {
+        backgroundColor: C.warningFond, borderRadius: 8, padding: 10,
+        marginTop: 8, borderWidth: 0.5, borderColor: "#FCD34D",
+    },
+    alerteBoxText: { fontSize: 12, color: "#92400E", fontWeight: "600" },
+
+    btnAction: {
+        flex: 1, borderRadius: 12, padding: 14, alignItems: "center",
+    },
+    btnActionText: { color: "#fff", fontWeight: "700", fontSize: 14 },
+
+    formTitre: {
+        fontSize: 22, fontWeight: "700", color: C.texte, marginBottom: 22,
+    },
+    champLabel: {
+        fontSize: 13, fontWeight: "600", color: C.texte, marginBottom: 6,
+    },
+    champInput: {
+        backgroundColor: C.carte, borderRadius: 12, padding: 14,
+        fontSize: 15, color: C.texte, marginBottom: 16,
+        borderWidth: 0.5, borderColor: C.bordure,
+    },
+    champInputMulti: { minHeight: 90, textAlignVertical: "top" },
+    champInputErreur: { borderColor: C.danger, borderWidth: 1.5 },
+    champErreur: {
+        fontSize: 12, color: C.danger, marginTop: -10, marginBottom: 12,
     },
 
-    departmentList: {
-        flexDirection: "row",
-        flexWrap: "wrap",
-        gap: 8,
-        marginBottom: 18,
+    choixRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 },
+    choixBtn: {
+        paddingVertical: 9, paddingHorizontal: 16, borderRadius: 99,
+        borderWidth: 0.5, borderColor: C.bordure, backgroundColor: C.carte,
     },
+    choixBtnActif: { backgroundColor: C.primaire, borderColor: C.primaire },
+    choixBtnText: { fontSize: 13, color: C.texte },
+    choixBtnTextActif: { color: "#fff", fontWeight: "700" },
 
-    departmentButton: {
-        backgroundColor: "#FFFFFF",
-        paddingVertical: 10,
-        paddingHorizontal: 12,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: "#CBD5E1",
+    // Département dropdown
+    deptSelector: {
+        backgroundColor: C.carte, borderRadius: 12, padding: 14,
+        borderWidth: 0.5, borderColor: C.bordure, marginBottom: 8,
+        flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     },
-
-    departmentSelected: {
-        backgroundColor: "#1E293B",
-        borderColor: "#1E293B",
+    deptSelectorTexte: { fontSize: 15, color: C.texte, flex: 1 },
+    deptSelectorChevron: { fontSize: 12, color: C.texteSec },
+    deptListe: {
+        backgroundColor: C.carte, borderRadius: 12,
+        borderWidth: 0.5, borderColor: C.bordure,
+        marginBottom: 16, overflow: "hidden",
     },
-
-    departmentText: {
-        color: "#1E293B",
-        fontWeight: "600",
+    deptGroupHeader: {
+        backgroundColor: "#F1F5F9",
+        paddingVertical: 8, paddingHorizontal: 14,
+        borderBottomWidth: 0.5, borderBottomColor: C.bordure,
     },
-
-    departmentSelectedText: {
-        color: "#FFFFFF",
+    deptGroupHeaderTexte: {
+        fontSize: 12, fontWeight: "700", color: "#475569",
+        textTransform: "uppercase", letterSpacing: 0.5,
     },
-
-    button: {
-        backgroundColor: "#1E293B",
-        padding: 17,
-        borderRadius: 14,
-        marginBottom: 25,
+    deptOption: {
+        padding: 14, borderBottomWidth: 0.5, borderBottomColor: C.bordure,
+        flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     },
+    deptOptionActif: { backgroundColor: "#EEF2FF" },
+    deptOptionTexte: { fontSize: 14, color: C.texte },
+    deptOptionTexteActif: { fontWeight: "700", color: "#4F46E5" },
+    deptCheck: { fontSize: 16, color: "#4F46E5", fontWeight: "700" },
 
-    buttonText: {
-        color: "#FFFFFF",
-        textAlign: "center",
-        fontSize: 17,
-        fontWeight: "bold",
+    btnPrimaire: {
+        backgroundColor: C.primaire, borderRadius: 12,
+        padding: 16, alignItems: "center", marginTop: 8,
     },
-
-    sectionTitle: {
-        fontSize: 20,
-        fontWeight: "bold",
-        color: "#1E293B",
-        marginBottom: 12,
-    },
-
-    memberCard: {
-        backgroundColor: "#FFFFFF",
-        padding: 15,
-        borderRadius: 12,
-        marginBottom: 10,
-    },
-
-    memberName: {
-        fontSize: 17,
-        fontWeight: "bold",
-    },
-
-    memberPhone: {
-        color: "#64748B",
-        marginTop: 4,
-    },
-
-    memberDepartment: {
-        color: "#8B5E34",
-        marginTop: 6,
-        fontWeight: "600",
-    },
-
-    
-    deleteButtonText: {
-        color: "#FFFFFF",
-        textAlign: "center",
-        fontWeight: "bold",
-    },
-
-    actionRow: {
-        flexDirection: "row",
-        gap: 10,
-        marginTop: 12,
-    },
-
-    actionButtonText: {
-        color: "#FFFFFF",
-        textAlign: "center",
-        fontWeight: "bold",
-        width: "100%",
-    },
-
-    editButton: {
-        flex: 1,
-        backgroundColor: "#07074C",
-        paddingVertical: 12,
-        borderRadius: 10,
-        justifyContent: "center",
-        alignItems: "center"
-    },
-
-    deleteButton: {
-        flex: 1,
-        backgroundColor: "#07074C",
-        paddingVertical: 12,
-        borderRadius: 10,
-        justifyContent: "center",
-        alignItems: "center"
-    },
-
-    selectBox: {
-        backgroundColor: "#FFFFFF",
-        padding: 15,
-        borderRadius: 12,
-        marginBottom: 10,
-    },
-
-    selectText: {
-        fontSize: 16,
-        color: "#1E293B",
-    },
-
-    selectOptions: {
-        backgroundColor: "#FFFFFF",
-        borderRadius: 12,
-        marginBottom: 12,
-        overflow: "hidden",
-    },
-
-    selectOption: {
-        padding: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: "#E5E7EB",
-    },
-
-});
+    btnPrimaireText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+    });
