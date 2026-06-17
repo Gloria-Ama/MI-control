@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import CommunauteCulte, Membre, Departement, Visiteur, Presence, Responsable
-
+from .chat_models import Message
 
 class CommunauteCulteSerializer(serializers.ModelSerializer):
     class Meta:
@@ -86,3 +86,35 @@ class ResponsableSerializer(serializers.ModelSerializer):
             "communaute_culte", "departement",
             "mot_de_passe_change", "actif",
         ]
+
+class MessageSerializer(serializers.ModelSerializer):
+    expediteur_nom = serializers.CharField(source="expediteur.username", read_only=True)
+    destinataire_nom = serializers.CharField(source="destinataire.username", read_only=True)
+
+    class Meta:
+        model = Message
+        fields = [
+            "id", "expediteur", "expediteur_nom",
+            "destinataire", "destinataire_nom",
+            "contenu", "date_envoi", "lu", "date_lecture",
+        ]
+
+# ── À ajouter dans backend/church/serializers.py ──────────────────────────────
+
+from .evenement_model import Evenement
+
+class EvenementSerializer(serializers.ModelSerializer):
+    type_label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Evenement
+        fields = [
+            "id", "communaute_culte", "titre", "description",
+            "type", "type_label", "date_debut", "heure_debut",
+            "date_fin", "heure_fin", "lieu", "tous_les_cultes",
+        ]
+
+    def get_type_label(self, obj):
+        return obj.get_type_display()
+
+

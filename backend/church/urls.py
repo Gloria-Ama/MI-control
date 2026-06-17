@@ -5,8 +5,12 @@ from .views import (
     PresenceViewSet, ResponsableViewSet,
     CommunauteCulteViewSet, me,
 )
+from .views import EvenementViewSet
+from .views import MessageViewSet
 
 router = DefaultRouter()
+router.register(r'messages', MessageViewSet, basename='message')
+router.register(r'evenements', EvenementViewSet, basename='evenement')
 router.register(r'membres',      MembreViewSet,          basename='membre')
 router.register(r'departements', DepartementViewSet,     basename='departement')
 router.register(r'visiteurs',    VisiteurViewSet,        basename='visiteur')

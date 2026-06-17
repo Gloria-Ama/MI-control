@@ -4,7 +4,6 @@
     Alert, ActivityIndicator, SafeAreaView,
     } from "react-native";
     import { getMembres, createMembre, updateMembre, deleteMembre, getHistoriquePresences } from "../services/membres.service";
-    import { getDepartements } from "../services/departements.service";
     import { getProfilConnecte } from "../services/auth.service";
     import { api } from "../services/api";
     import { s } from "../styles/membres.styles";
@@ -17,8 +16,7 @@
     statut: string; notes: string; taux_presence: number | null;
     absences_recentes: number; communautes_culte: number[];
     };
-    type Departement = { id: number; nom: string };
-    type DepartementAvecCulte = { id: number; nom: string; culteNom: string };
+    type DepartementAvecCulte = { id: number; nom: string; culteNom: string; communaute_culte: number };
     type Culte = { id: number; nom: string };
 
     type Props = {
@@ -35,11 +33,11 @@
     masculin: "Masculin", feminin: "Féminin", autre: "Autre",
     };
 
-    export default function MembresScreen({ nomCulte, communauteId }: Props) {
+    export default function MembresScreen({ nomCulte, communauteId: communauteIdProp }: Props) {
     const [membres, setMembres] = useState<Membre[]>([]);
-    const [departements, setDepartements] = useState<Departement[]>([]);
     const [tousLesDepartements, setTousLesDepartements] = useState<DepartementAvecCulte[]>([]);
     const [cultes, setCultes] = useState<Culte[]>([]);
+    const [communauteId, setCommunauteId] = useState<number | undefined>(communauteIdProp);
     const [chargement, setChargement] = useState(true);
     const [recherche, setRecherche] = useState("");
     const [vue, setVue] = useState<"liste" | "detail" | "formulaire">("liste");
@@ -52,46 +50,61 @@
     const [telephoneValide, setTelephoneValide] = useState(false);
     const [deptOuvert, setDeptOuvert] = useState(false);
 
-    useEffect(() => { chargerDonnees(); }, [communauteId]);
+    useEffect(() => {
+        chargerDonnees();
+    }, [communauteIdProp]);
 
     async function chargerDonnees() {
         setChargement(true);
         try {
-            // Charger communautés EN PREMIER
-            const c = await api.get("/communautes/").then(r => r.data).catch(() => []);
-            setCultes(c);
+        // 1. Charger communautés EN PREMIER
+        const c: Culte[] = await api.get("/communautes/").then(r => r.data).catch(() => []);
+        setCultes(c);
 
-            // Construire map culteId → culteNom
-            const cultesMap: Record<number, string> = {};
-            (c as Culte[]).forEach(cu => { cultesMap[cu.id] = cu.nom; });
+        // 2. Trouver l'ID du culte actif depuis le nom si non fourni
+        let cid = communauteIdProp;
+        if (!cid && nomCulte && c.length > 0) {
+            const culte = c.find(cu =>
+            cu.nom.toLowerCase() === nomCulte.toLowerCase() ||
+            nomCulte.toLowerCase().includes(cu.nom.toLowerCase().replace("culte du ", ""))
+            );
+            if (culte) {
+            cid = culte.id;
+            setCommunauteId(culte.id);
+            }
+        }
+        if (!cid && c.length > 0) {
+            cid = c[0].id;
+            setCommunauteId(c[0].id);
+        }
 
-            // Charger membres et départements en parallèle
-            const [m, tousD] = await Promise.all([
-            getMembres({ communaute_culte: communauteId }),
+        // 3. Construire map culteId → culteNom
+        const cultesMap: Record<number, string> = {};
+        c.forEach(cu => { cultesMap[cu.id] = cu.nom; });
+
+        // 4. Charger membres et départements en parallèle
+        const [m, tousD] = await Promise.all([
+            getMembres({ communaute_culte: cid }),
             api.get("/departements/").then(r => r.data),
-            ]);
+        ]);
 
-            setMembres(m);
+        setMembres(m);
 
-        // Enrichir départements avec nom du culte
+        // 5. Enrichir départements avec nom du culte
         const departementsAvecCulte: DepartementAvecCulte[] = (tousD as any[]).map(dep => ({
-        id: dep.id,
-        nom: dep.nom,
-        culteNom: cultesMap[dep.communaute_culte] ?? "Inconnu",
+            id: dep.id,
+            nom: dep.nom,
+            culteNom: cultesMap[dep.communaute_culte] ?? "Inconnu",
+            communaute_culte: dep.communaute_culte,
         }));
         setTousLesDepartements(departementsAvecCulte);
 
-        const depFiltres = communauteId
-        ? (tousD as any[]).filter(d => d.communaute_culte === communauteId)
-        : tousD;
-        setDepartements(depFiltres);
-
-    } catch (err) {
+        } catch (err) {
         console.log("Erreur chargement:", err);
         Alert.alert("Erreur", "Impossible de charger les données.");
-    } finally {
+        } finally {
         setChargement(false);
-    }
+        }
     }
 
     async function ouvrirDetail(membre: Membre) {
@@ -102,17 +115,18 @@
         setHistoriquePresences(h);
         } catch {}
     }
+
     function ouvrirFormulaire(membre?: Membre) {
         if (membre) {
-            setFormulaire({ ...membre });
-            setModeEdition(true);
-            setTelephoneValide(true);
+        setFormulaire({ ...membre });
+        setModeEdition(true);
+        setTelephoneValide(true);
         } else {
-            // ✅ Pré-cocher le culte actif automatiquement
-            const cultesInitiaux = communauteId ? [Number(communauteId)] : 
-            cultes.length > 0 ? [cultes[0].id] : [];
+        const cultesInitiaux = communauteId
+            ? [Number(communauteId)]
+            : cultes.length > 0 ? [cultes[0].id] : [];
 
-            setFormulaire({
+        setFormulaire({
             nom: "",
             telephone: "",
             email: "",
@@ -123,15 +137,14 @@
             statut: "actif",
             notes: "",
             communautes_culte: cultesInitiaux,
-            });
-            setModeEdition(false);
-            setTelephoneValide(false);
+        });
+        setModeEdition(false);
+        setTelephoneValide(false);
         }
         setErreurs({});
         setDeptOuvert(false);
         setVue("formulaire");
-        }
-    
+    }
 
     function valider(): boolean {
         const nouvellesErreurs: { nom?: string; telephone?: string } = {};
@@ -152,8 +165,9 @@
         setSauvegarde(true);
         try {
         const cultesSelectionnes = (formulaire.communautes_culte ?? []).map(Number);
-        if (cultesSelectionnes.length === 0 && communauteId) {
-            cultesSelectionnes.push(Number(communauteId));
+        if (cultesSelectionnes.length === 0) {
+            if (communauteId) cultesSelectionnes.push(Number(communauteId));
+            else if (cultes.length > 0) cultesSelectionnes.push(cultes[0].id);
         }
 
         const donnees = {
@@ -230,7 +244,7 @@
         const d = tousLesDepartements.find(
         dep => Number(dep.id) === Number(formulaire.departement)
         );
-        return d ? `${d.nom} (${d.culteNom})` : "Choisir un département";
+        return d ? `${d.nom} — ${d.culteNom}` : "Choisir un département";
     }
 
     // ── LISTE ──────────────────────────────────────────────────────────────────
@@ -319,14 +333,8 @@
                 <Text style={s.detailNom}>{m.nom}</Text>
                 <Text style={s.detailSub}>{m.departement_nom ?? "Sans département"}</Text>
                 <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
-                <View style={[
-                    s.statutBadge,
-                    m.statut === "actif" ? s.badgeActif : s.badgeDanger,
-                ]}>
-                    <Text style={[
-                    s.statutTexte,
-                    m.statut === "actif" ? s.badgeActifTexte : s.badgeDangerTexte,
-                    ]}>
+                <View style={[s.statutBadge, m.statut === "actif" ? s.badgeActif : s.badgeDanger]}>
+                    <Text style={[s.statutTexte, m.statut === "actif" ? s.badgeActifTexte : s.badgeDangerTexte]}>
                     {STATUT_LABELS[m.statut]}
                     </Text>
                 </View>
@@ -383,24 +391,16 @@
                 {m.notes ? (
                 <View style={s.section}>
                     <Text style={s.sectionTitre}>Notes</Text>
-                    <Text style={{ fontSize: 14, color: "#1E293B", lineHeight: 20 }}>
-                    {m.notes}
-                    </Text>
+                    <Text style={{ fontSize: 14, color: "#1E293B", lineHeight: 20 }}>{m.notes}</Text>
                 </View>
                 ) : null}
 
                 <View style={{ flexDirection: "row", gap: 10, marginBottom: 10 }}>
-                <Pressable
-                    style={[s.btnAction, { backgroundColor: "#07074C" }]}
-                    onPress={() => ouvrirFormulaire(m)}
-                >
+                <Pressable style={[s.btnAction, { backgroundColor: "#07074C" }]} onPress={() => ouvrirFormulaire(m)}>
                     <Text style={s.btnActionText}>✏️ Modifier</Text>
                 </Pressable>
                 <Pressable
-                    style={[s.btnAction, {
-                    backgroundColor: "#FEF2F2",
-                    borderWidth: 0.5, borderColor: "#FECACA",
-                    }]}
+                    style={[s.btnAction, { backgroundColor: "#FEF2F2", borderWidth: 0.5, borderColor: "#FECACA" }]}
                     onPress={() => confirmerSuppression(m)}
                 >
                     <Text style={[s.btnActionText, { color: "#EF4444" }]}>🗑 Supprimer</Text>
@@ -418,10 +418,7 @@
         <SafeAreaView style={s.safe}>
             <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 120 }}>
 
-            <Pressable
-                onPress={() => setVue(modeEdition ? "detail" : "liste")}
-                style={s.retourBtn}
-            >
+            <Pressable onPress={() => setVue(modeEdition ? "detail" : "liste")} style={s.retourBtn}>
                 <Text style={s.retourText}>‹ Retour</Text>
             </Pressable>
 
@@ -521,32 +518,38 @@
             </View>
 
             {/* Cultes */}
-            <Text style={s.champLabel}>Culte(s)</Text>
-            <View style={{ flexDirection: "row", gap: 8, marginBottom: 16 }}>
+            <Text style={s.champLabel}>Culte(s) *</Text>
+            {cultes.length === 0 ? (
+                <Text style={{ fontSize: 13, color: "#94A3B8", marginBottom: 16, fontStyle: "italic" }}>
+                Chargement des cultes...
+                </Text>
+            ) : (
+                <View style={{ flexDirection: "row", gap: 8, marginBottom: 16 }}>
                 {cultes.map(c => {
-                const estSelectionne = (formulaire.communautes_culte ?? [])
+                    const estSelectionne = (formulaire.communautes_culte ?? [])
                     .map(Number).includes(Number(c.id));
-                return (
+                    return (
                     <Pressable
-                    key={c.id}
-                    style={[s.choixBtn, estSelectionne && s.choixBtnActif]}
-                    onPress={() => {
+                        key={c.id}
+                        style={[s.choixBtn, estSelectionne && s.choixBtnActif]}
+                        onPress={() => {
                         const actuels = (formulaire.communautes_culte ?? []).map(Number);
                         const nouveau = estSelectionne
-                        ? actuels.filter((id: number) => id !== Number(c.id))
-                        : [...actuels, Number(c.id)];
+                            ? actuels.filter((id: number) => id !== Number(c.id))
+                            : [...actuels, Number(c.id)];
                         setFormulaire({ ...formulaire, communautes_culte: nouveau });
-                    }}
+                        }}
                     >
-                    <Text style={[s.choixBtnText, estSelectionne && s.choixBtnTextActif]}>
+                        <Text style={[s.choixBtnText, estSelectionne && s.choixBtnTextActif]}>
                         {c.nom.replace("Culte du ", "")}
-                    </Text>
+                        </Text>
                     </Pressable>
-                );
+                    );
                 })}
-            </View>
+                </View>
+            )}
 
-            {/* Département — groupé par culte */}
+            {/* Département groupé par culte */}
             <Text style={s.champLabel}>Département</Text>
             <Pressable
                 style={s.deptSelector}
@@ -558,7 +561,6 @@
 
             {deptOuvert && (
                 <View style={s.deptListe}>
-                {/* Aucun */}
                 <Pressable
                     style={s.deptOption}
                     onPress={() => { setFormulaire({ ...formulaire, departement: null }); setDeptOuvert(false); }}
@@ -569,7 +571,6 @@
                     {!formulaire.departement && <Text style={s.deptCheck}>✓</Text>}
                 </Pressable>
 
-                {/* Groupe Jeudi */}
                 {deptsJeudi.length > 0 && (
                     <>
                     <View style={s.deptGroupHeader}>
@@ -591,7 +592,6 @@
                     </>
                 )}
 
-                {/* Groupe Dimanche */}
                 {deptsDimanche.length > 0 && (
                     <>
                     <View style={s.deptGroupHeader}>
@@ -629,7 +629,6 @@
                 placeholderTextColor="#94A3B8"
             />
 
-            {/* Bouton */}
             <Pressable
                 style={[s.btnPrimaire, sauvegarde && { opacity: 0.6 }]}
                 onPress={sauvegarder}

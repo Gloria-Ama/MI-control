@@ -11,6 +11,9 @@
     import DepartementsScreen from "./DepartementsScreen";
     import FinancesScreen from "./FinancesScreen";
     import RapportsScreen from "./RapportsScreen";
+    import ResponsablesScreen from "./ResponsablesScreen";
+    import ChatScreen from "./ChatScreen";
+    import CalendrierScreen from "./CalendrierScreen";
 
     import { getMembres } from "../services/membres.service";
     import { getProfilConnecte } from "../services/auth.service";
@@ -22,7 +25,7 @@
     };
 
     type OngletNav = "accueil" | "membres" | "presences" | "finances" | "plus";
-    type SousModule = "visiteurs" | "departements" | "rapports" | null;
+    type SousModule = "visiteurs" | "departements" | "rapports" | "responsables" | "chat" | "calendrier" | null;
 
     export default function DashboardScreen({ nomCulte, onRetour, onDeconnexion }: Props) {
     const [onglet, setOnglet] = useState<OngletNav>("accueil");
@@ -31,7 +34,6 @@
     const [profil, setProfil] = useState<any>(null);
     const [communautes, setCommunautes] = useState<{ id: number; nom: string }[]>([]);
 
-    // ✅ Un seul useEffect
     useEffect(() => {
         chargerProfil();
         chargerMembres();
@@ -75,6 +77,10 @@
         if (profil.role === "responsable_accueil") return ["visiteurs", "membres", "presences"].includes(module);
         if (profil.role === "responsable") return ["membres", "presences"].includes(module);
         return false;
+    }
+
+    function estAdmin() {
+        return profil?.role === "pasteur" || profil?.role === "administrateur";
     }
 
     function getDateFormat(date: Date) {
@@ -147,6 +153,50 @@
         );
     }
 
+    if (sousModule === "responsables") {
+        return (
+        <SafeAreaView style={s.safe}>
+            <View style={s.header}>
+            <Pressable onPress={() => setSousModule(null)} style={s.retourBtn}>
+                <Text style={s.retourText}>‹ Retour</Text>
+            </Pressable>
+            <Text style={s.headerTitre}>Responsables</Text>
+            <View style={s.headerEspace} />
+            </View>
+            <View style={{ flex: 1, backgroundColor: "#F8F5F0" }}>
+            <ResponsablesScreen />
+            </View>
+        </SafeAreaView>
+        );
+    }
+
+    if (sousModule === "chat") {
+        return (
+        <SafeAreaView style={s.safe}>
+            <View style={{ flex: 1, backgroundColor: "#F8F5F0" }}>
+            <ChatScreen onRetour={() => setSousModule(null)} />
+            </View>
+        </SafeAreaView>
+        );
+    }
+
+    if (sousModule === "calendrier") {
+        return (
+        <SafeAreaView style={s.safe}>
+            <View style={s.header}>
+            <Pressable onPress={() => setSousModule(null)} style={s.retourBtn}>
+                <Text style={s.retourText}>‹ Retour</Text>
+            </Pressable>
+            <Text style={s.headerTitre}>Calendrier</Text>
+            <View style={s.headerEspace} />
+            </View>
+            <View style={{ flex: 1, backgroundColor: "#F8F5F0" }}>
+            <CalendrierScreen />
+            </View>
+        </SafeAreaView>
+        );
+    }
+
     // ── Contenu selon l'onglet ─────────────────────────────────────────────────
     function renderContenu() {
 
@@ -198,6 +248,38 @@
                 <View style={{ flex: 1 }}>
                     <Text style={s.moduleNom}>Rapports</Text>
                     <Text style={s.moduleSub}>Statistiques et exports</Text>
+                </View>
+                <Text style={s.moduleFleche}>›</Text>
+                </Pressable>
+            )}
+
+            {/* Calendrier — visible par tous */}
+            <Pressable style={s.moduleCard} onPress={() => setSousModule("calendrier")}>
+                <Text style={s.moduleIcone}>📅</Text>
+                <View style={{ flex: 1 }}>
+                <Text style={s.moduleNom}>Calendrier</Text>
+                <Text style={s.moduleSub}>Activités et événements</Text>
+                </View>
+                <Text style={s.moduleFleche}>›</Text>
+            </Pressable>
+
+            {/* Chat — visible par tous */}
+            <Pressable style={s.moduleCard} onPress={() => setSousModule("chat")}>
+                <Text style={s.moduleIcone}>💬</Text>
+                <View style={{ flex: 1 }}>
+                <Text style={s.moduleNom}>ChatIntimacy</Text>
+                <Text style={s.moduleSub}>Messagerie interne</Text>
+                </View>
+                <Text style={s.moduleFleche}>›</Text>
+            </Pressable>
+
+            {/* Responsables — admin seulement */}
+            {estAdmin() && (
+                <Pressable style={s.moduleCard} onPress={() => setSousModule("responsables")}>
+                <Text style={s.moduleIcone}>👤</Text>
+                <View style={{ flex: 1 }}>
+                    <Text style={s.moduleNom}>Responsables</Text>
+                    <Text style={s.moduleSub}>Gérer les comptes</Text>
                 </View>
                 <Text style={s.moduleFleche}>›</Text>
                 </Pressable>
@@ -316,6 +398,14 @@
                 <Text style={s.raccourciNom}>Finances</Text>
                 </Pressable>
             )}
+            <Pressable style={s.raccourciCard} onPress={() => setSousModule("calendrier")}>
+                <Text style={s.raccourciIcone}>📅</Text>
+                <Text style={s.raccourciNom}>Calendrier</Text>
+            </Pressable>
+            <Pressable style={s.raccourciCard} onPress={() => setSousModule("chat")}>
+                <Text style={s.raccourciIcone}>💬</Text>
+                <Text style={s.raccourciNom}>Chat</Text>
+            </Pressable>
             </View>
         </ScrollView>
         );

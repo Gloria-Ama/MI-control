@@ -42,33 +42,37 @@ class Membre(models.Model):
         ("masculin", "Masculin"),
         ("autre", "Autre"),
     ]
-    communaute_culte = models.ForeignKey(
+
+    # ✅ ManyToMany — un membre peut appartenir à un ou deux cultes
+    communautes_culte = models.ManyToManyField(
         CommunauteCulte,
-        on_delete=models.CASCADE,
-        related_name="membres"
+        related_name="membres",
+        blank=True,
     )
+
     nom = models.CharField(max_length=150)
     telephone = models.CharField(max_length=20)
     email = models.EmailField(blank=True)
     sexe = models.CharField(max_length=20, choices=SEXE_CHOICES, blank=True)
-    date_anniversaire = models.CharField(max_length=5, blank=True,null=True)
+    date_anniversaire = models.CharField(max_length=5, blank=True, null=True)
     adresse = models.TextField(blank=True)
     departement = models.ForeignKey(
         Departement,
         on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
+        null=True, blank=True,
         related_name="membres"
     )
     date_integration = models.DateField(auto_now_add=True)
     statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default="actif")
     notes = models.TextField(blank=True)
+
     class Meta:
         verbose_name = "Membre"
         verbose_name_plural = "Membres"
+
     def __str__(self):
         return self.nom
-    
+
 
 class Presence(models.Model):
     communaute_culte = models.ForeignKey(
@@ -76,13 +80,11 @@ class Presence(models.Model):
         on_delete=models.CASCADE,
         related_name="presences"
     )
-
     membre = models.ForeignKey(
         Membre,
         on_delete=models.CASCADE,
         related_name="presences"
     )
-
     date = models.DateField()
     present = models.BooleanField(default=False)
 
@@ -94,7 +96,7 @@ class Presence(models.Model):
     def __str__(self):
         statut = "Présent" if self.present else "Absent"
         return f"{self.membre.nom} - {self.date} - {statut}"
-    
+
 
 class Responsable(models.Model):
     ROLE_CHOICES = [
@@ -102,31 +104,27 @@ class Responsable(models.Model):
         ("administrateur", "Administrateur"),
         ("tresoriere", "Trésorière"),
         ("secretaire", "Secrétaire"),
+        ("responsable_accueil", "Responsable Accueil"),
         ("responsable", "Responsable de département"),
     ]
 
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     role = models.CharField(max_length=50, choices=ROLE_CHOICES)
-
     communaute_culte = models.ForeignKey(
         CommunauteCulte,
         on_delete=models.SET_NULL,
-        null=True,
-        blank=True
+        null=True, blank=True
     )
-
     departement = models.ForeignKey(
         Departement,
         on_delete=models.SET_NULL,
-        null=True,
-        blank=True
+        null=True, blank=True
     )
-
     mot_de_passe_change = models.BooleanField(default=False)
     actif = models.BooleanField(default=True)
 
     def __str__(self):
-        return f"{self.user.email} - {self.role}"
+        return f"{self.user.username} - {self.role}"
 
 
 class Visiteur(models.Model):
@@ -142,7 +140,9 @@ class Visiteur(models.Model):
         ("integre", "Intégré"),
         ("converti_membre", "Converti en membre"),
     ]
-    communaute_culte = models.ForeignKey(CommunauteCulte, on_delete=models.CASCADE, related_name="visiteurs")
+    communaute_culte = models.ForeignKey(
+        CommunauteCulte, on_delete=models.CASCADE, related_name="visiteurs"
+    )
     nom = models.CharField(max_length=150)
     telephone = models.CharField(max_length=20)
     email = models.EmailField(blank=True)
@@ -158,3 +158,6 @@ class Visiteur(models.Model):
 
     def __str__(self):
         return self.nom
+    
+from .evenement_model import Evenement
+from .chat_models import Message

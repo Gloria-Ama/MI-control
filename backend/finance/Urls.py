@@ -10,8 +10,8 @@ router.register(r'transactions', TransactionFinanceViewSet, basename='transactio
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/', include('church.urls')),
+    path('api/', include(router.urls)),
     path('api/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('api/', include(router.urls)),      # ✅ finances et transactions
-    path('api/', include('church.urls')),    # ✅ membres, présences, etc.
 ]

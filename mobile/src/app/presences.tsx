@@ -1,5 +1,9 @@
-import PresencesScreen from "../screens/PresencesScreen";
+    import { View, Text } from "react-native";
 
-export default function PresencesPage() {
-    return <PresencesScreen nomCulte="Culte du dimanche" />;
-}
+    export default function PresencesPage() {
+    return (
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#F8F5F0" }}>
+        <Text style={{ fontSize: 16, color: "#64748B" }}>Présences</Text>
+        </View>
+    );
+    }
