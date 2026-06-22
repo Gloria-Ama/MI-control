@@ -1,11 +1,8 @@
 import { useEffect, useState } from "react";
-import {
-  View, Text, ScrollView, Pressable,
-  SafeAreaView, StatusBar, StyleSheet,
-} from "react-native";
+import {View, Text, ScrollView, Pressable,SafeAreaView, StatusBar, StyleSheet,} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "../services/api";
-
+import ExportPDFScreen from "./ExportPDFScreen"
 import MembresScreen from "./MembresScreen";
 import VisiteursScreen from "./VisiteursScreen";
 import PresencesScreen from "./PresencesScreen";
@@ -20,7 +17,10 @@ import ProfilScreen from "./ProfilScreen";
 import CroissanceScreen from "./CroissanceScreen";
 import SuiviPastoralScreen from "./SuiviPastoralScreen";
 import BudgetScreen from "./BudgetScreen";
-
+import QRCodeScreen from "./QRCodeScreen";
+import PushNotificationsScreen from "./PushNotificationsScreen";
+import OfflineBanner from "../components/OfflineBanner";
+import ParametresOfflineScreen from "./ParametresOfflineScreen";
 import { getMembres } from "../services/membres.service";
 import { getProfilConnecte } from "../services/auth.service";
 import { getNonLues, genererNotifications } from "../services/notifications.service";
@@ -37,7 +37,7 @@ type SousModule =
   | "visiteurs" | "departements" | "rapports" | "responsables"
   | "chat" | "calendrier" | "notifications" | "profil"
   | "croissance" | "pastoral" | "budget"
-  | null;
+  | "export" | "qrcode" |"offline" |"push" | null;
 
 export default function DashboardScreen({ nomCulte, onRetour, onDeconnexion }: Props) {
   const [onglet, setOnglet] = useState<OngletNav>("accueil");
@@ -149,6 +149,10 @@ export default function DashboardScreen({ nomCulte, onRetour, onDeconnexion }: P
   if (sousModule === "pastoral")     return <SousModuleWrapper titre="Suivi pastoral"        onBack={() => setSousModule(null)}><SuiviPastoralScreen /></SousModuleWrapper>;
   if (sousModule === "budget")       return <SousModuleWrapper titre="Budget annuel"         onBack={() => setSousModule(null)}><BudgetScreen /></SousModuleWrapper>;
   if (sousModule === "notifications") return <SousModuleWrapper titre="Notifications" onBack={() => { setSousModule(null); chargerNotifications(); }}><NotificationsScreen /></SousModuleWrapper>;
+  if (sousModule === "export") return (<SousModuleWrapper titre="Export PDF" onBack={() => setSousModule(null)}><ExportPDFScreen nomCulte={nomCulte} communauteId={getCommunauteId()} /></SousModuleWrapper>);
+  if (sousModule === "qrcode") return (<SousModuleWrapper titre="QR Code présences" onBack={() => setSousModule(null)}><QRCodeScreen nomCulte={nomCulte} communauteId={getCommunauteId()} /></SousModuleWrapper>);
+  if (sousModule === "offline") return (<SousModuleWrapper titre="Mode hors ligne" onBack={() => setSousModule(null)}><ParametresOfflineScreen /></SousModuleWrapper>);
+  if (sousModule === "push") return (<SousModuleWrapper titre="Push Notifications" onBack={() => setSousModule(null)}><PushNotificationsScreen /></SousModuleWrapper>);
 
   if (sousModule === "chat") {
     return (
@@ -256,6 +260,50 @@ export default function DashboardScreen({ nomCulte, onRetour, onDeconnexion }: P
           <Pressable style={s.moduleCard} onPress={() => setSousModule("responsables")}>
             <View style={s.moduleIconeBox}><Ionicons name="people-outline" size={22} color="#07074C" /></View>
             <View style={{ flex: 1 }}><Text style={s.moduleNom}>Responsables</Text><Text style={s.moduleSub}>Gérer les comptes</Text></View>
+            <Ionicons name="chevron-forward" size={18} color="#CBD5E0" />
+          </Pressable>
+
+          <Pressable style={s.moduleCard} onPress={() => setSousModule("export")}>
+            <View style={s.moduleIconeBox}>
+              <Ionicons name="document-text-outline" size={22} color="#07074C" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.moduleNom}>Export PDF</Text>
+              <Text style={s.moduleSub}>Rapports imprimables</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#CBD5E0" />
+          </Pressable>
+
+          <Pressable style={s.moduleCard} onPress={() => setSousModule("qrcode")}>
+            <View style={s.moduleIconeBox}>
+              <Ionicons name="qr-code-outline" size={22} color="#07074C" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.moduleNom}>QR Code présences</Text>
+              <Text style={s.moduleSub}>Auto-pointage des membres</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#CBD5E0" />
+          </Pressable>
+
+          <Pressable style={s.moduleCard} onPress={() => setSousModule("offline")}>
+            <View style={s.moduleIconeBox}>
+              <Ionicons name="cloud-offline-outline" size={22} color="#07074C" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.moduleNom}>Mode hors ligne</Text>
+              <Text style={s.moduleSub}>Gérer les données en cache</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#CBD5E0" />
+          </Pressable>
+
+          <Pressable style={s.moduleCard} onPress={() => setSousModule("push")}>
+            <View style={s.moduleIconeBox}>
+              <Ionicons name="notifications-outline" size={22} color="#07074C" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.moduleNom}>Push Notifications</Text>
+              <Text style={s.moduleSub}>Alertes sur votre téléphone</Text>
+            </View>
             <Ionicons name="chevron-forward" size={18} color="#CBD5E0" />
           </Pressable>
 
@@ -375,6 +423,7 @@ export default function DashboardScreen({ nomCulte, onRetour, onDeconnexion }: P
   return (
     <SafeAreaView style={s.safe}>
       <StatusBar barStyle="light-content" backgroundColor="#07074C" />
+      <StatusBar barStyle="light-content" backgroundColor="#e01a1a" /><OfflineBanner />
       <View style={s.header}>
         <View style={s.headerEspace} />
         <Text style={s.headerTitre} numberOfLines={1}>

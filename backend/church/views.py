@@ -6,7 +6,8 @@ from django.db.models import Q
 from django.utils import timezone
 from django.contrib.auth.models import User
 from datetime import date, timedelta
-
+import requests as http_requests
+from .push_model import PushToken
 from .models import CommunauteCulte, Membre, Departement, Visiteur, Presence, Responsable
 from .chat_models import Message
 from .evenement_model import Evenement
@@ -685,3 +686,122 @@ def stats_croissance(request):
             "taux_moyen": taux_moyen,
         }
     })
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def pointer_par_qr(request):
+    """Marquer un membre présent via QR Code."""
+    membre_id = request.data.get("membre_id")
+    date_culte = request.data.get("date")
+    communaute_id = request.data.get("communaute_culte")
+
+    if not membre_id or not date_culte:
+        return Response(
+            {"detail": "membre_id et date sont requis."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        membre = Membre.objects.get(id=membre_id)
+    except Membre.DoesNotExist:
+        return Response(
+            {"detail": "Membre introuvable."},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    presence, created = Presence.objects.update_or_create(
+        membre=membre,
+        date=date_culte,
+        communaute_culte_id=communaute_id,
+        defaults={"present": True},
+    )
+
+    return Response({
+        "detail": f"{membre.nom} marqué présent.",
+        "membre_nom": membre.nom,
+        "deja_pointe": not created,
+        "presence_id": presence.id,
+    })
+
+api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def enregistrer_push_token(request):
+    """Enregistre le token de notification push pour l'utilisateur connecté."""
+    token = request.data.get("token", "").strip()
+    if not token:
+        return Response({"detail": "Token requis."}, status=status.HTTP_400_BAD_REQUEST)
+
+    PushToken.objects.update_or_create(
+        user=request.user,
+        defaults={"token": token, "actif": True},
+    )
+    return Response({"detail": "Token enregistré."})
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def envoyer_push(request):
+    """Envoyer une notification push à tous les responsables actifs."""
+    titre = request.data.get("titre", "MI Control")
+    corps = request.data.get("corps", "")
+    destinataires = request.data.get("destinataires", [])  # liste d'IDs ou "tous"
+
+    if not corps:
+        return Response({"detail": "Corps du message requis."}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Récupérer les tokens
+    if destinataires == "tous":
+        tokens = PushToken.objects.filter(actif=True).exclude(user=request.user)
+    else:
+        tokens = PushToken.objects.filter(user__id__in=destinataires, actif=True)
+
+    if not tokens.exists():
+        return Response({"detail": "Aucun destinataire avec push token.", "envoyes": 0})
+
+    # Envoyer via Expo Push API
+    messages = [
+        {
+            "to": pt.token,
+            "title": titre,
+            "body": corps,
+            "sound": "default",
+            "data": {"type": "mi_control"},
+        }
+        for pt in tokens
+    ]
+
+    try:
+        response = http_requests.post(
+            "https://exp.host/--/api/v2/push/send",
+            json=messages,
+            headers={
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+            },
+            timeout=10,
+        )
+        return Response({"envoyes": len(messages), "detail": f"Notification envoyée à {len(messages)} appareil(s)."})
+    except Exception as e:
+        return Response({"detail": f"Erreur envoi: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# ── Fonction utilitaire — envoyer push depuis n'importe où dans le code ────────
+
+def envoyer_push_utilisateur(user_id: int, titre: str, corps: str, data: dict = {}):
+    """Envoyer une notification push à un utilisateur spécifique."""
+    try:
+        push = PushToken.objects.get(user__id=user_id, actif=True)
+        http_requests.post(
+            "https://exp.host/--/api/v2/push/send",
+            json={
+                "to": push.token,
+                "title": titre,
+                "body": corps,
+                "sound": "default",
+                "data": data,
+            },
+            headers={"Accept": "application/json", "Content-Type": "application/json"},
+            timeout=5,
+        )
+    except Exception:
+        pass

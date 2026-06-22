@@ -7,6 +7,10 @@ from .views import (
     SuiviPastoralViewSet, BudgetAnnuelViewSet, LigneBudgetViewSet,
 )
 from .views import me, changer_mot_de_passe, update_profil, stats_croissance
+from .views import pointer_par_qr
+from .views import enregistrer_push_token, envoyer_push
+
+
 
 router = DefaultRouter()
 router.register(r'communautes', CommunauteCulteViewSet, basename='communaute')
@@ -28,4 +32,9 @@ urlpatterns = [
     path('me/changer-mot-de-passe/', changer_mot_de_passe, name='changer_mdp'),
     path('me/update/', update_profil, name='update_profil'),
     path('stats/croissance/', stats_croissance, name='stats_croissance'),
+    path('presences/qr/', pointer_par_qr, name='pointer_qr'),
+    path('push/token/', enregistrer_push_token, name='push_token'),
+    path('push/envoyer/', envoyer_push, name='push_envoyer'),
 ]
+
+

@@ -2,12 +2,11 @@
     import AsyncStorage from "@react-native-async-storage/async-storage";
 
     const api = axios.create({
-    baseURL: "http://192.168.2.14:8000/api",
+    baseURL: "https://undamaged-tabloid-tweezers.ngrok-free.dev/api",
     });
 
-    // Intercepteur : ajoute automatiquement le token JWT à chaque requête
     api.interceptors.request.use(async (config) => {
-    const token = await AsyncStorage.getItem("access_token");
+    const token = await AsyncStorage.getItem("accessToken");
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
     }

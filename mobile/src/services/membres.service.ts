@@ -1,4 +1,5 @@
     import { api } from "./api";
+    import { requeteAvecCache } from "./offline.service";
 
     export async function getMembres(filtres?: {
     search?: string;
@@ -14,13 +15,20 @@
     if (filtres?.statut) params.append("statut", filtres.statut);
     if (filtres?.communaute_culte) params.append("communaute_culte", String(filtres.communaute_culte));
 
-    const response = await api.get(`/membres/?${params.toString()}`);
-    return response.data;
+    const cle = `membres_${params.toString() || "tous"}`;
+    const { donnees } = await requeteAvecCache(
+        cle,
+        () => api.get(`/membres/?${params.toString()}`).then(r => r.data),
+    );
+    return donnees;
     }
 
     export async function getMembreById(id: number) {
-    const response = await api.get(`/membres/${id}/`);
-    return response.data;
+    const { donnees } = await requeteAvecCache(
+        `membre_${id}`,
+        () => api.get(`/membres/${id}/`).then(r => r.data),
+    );
+    return donnees;
     }
 
     export async function getHistoriquePresences(membreId: number) {
@@ -29,8 +37,11 @@
     }
 
     export async function getAnniversaires(periode: "aujourd_hui" | "demain" | "semaine") {
-    const response = await api.get(`/membres/anniversaires/?periode=${periode}`);
-    return response.data;
+    const { donnees } = await requeteAvecCache(
+        `anniversaires_${periode}`,
+        () => api.get(`/membres/anniversaires/?periode=${periode}`).then(r => r.data),
+    );
+    return donnees;
     }
 
     export async function getMembresAbsents(semaines = 3) {
