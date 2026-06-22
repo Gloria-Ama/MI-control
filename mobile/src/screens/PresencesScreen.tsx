@@ -15,9 +15,11 @@
     sexe: string; departement: number | null; departement_nom: string | null;
     };
     type Departement = { id: number; nom: string };
-    type Visiteur = { id: number; nom: string; telephone: string; email: string; sexe: string };
+    type Visiteur = {
+    id: number; nom: string; telephone: string;
+    email: string; sexe: string; date_premiere_visite: string;
+    };
     type Presence = { id: number; membre: number; date: string; present: boolean };
-    type Culte = { id: number; nom: string };
     type Vue = "pointage" | "stats" | "historique" | "visiteur";
 
     const SEXES = ["masculin", "feminin", "autre"];
@@ -59,43 +61,39 @@
     async function chargerDonnees() {
         setChargement(true);
         try {
-        // Résoudre l'ID de la communauté depuis le nom si non fourni
+        // Résoudre communauteId depuis nomCulte si non fourni
         let cid = communauteIdProp;
         if (!cid && nomCulte) {
-            const cultes: Culte[] = await api.get("/communautes/").then(r => r.data).catch(() => []);
-            const culte = cultes.find(c =>
-            c.nom.toLowerCase() === nomCulte.toLowerCase() ||
-            nomCulte.toLowerCase().includes(c.nom.toLowerCase().replace("culte du ", ""))
+            const cultes = await api.get("/communautes/").then(r => r.data).catch(() => []);
+            const culte = cultes.find((c: any) =>
+            c.nom.toLowerCase() === nomCulte.toLowerCase()
             );
-            if (culte) {
-            cid = culte.id;
-            setCommunauteId(culte.id);
-            } else if (cultes.length > 0) {
-            cid = cultes[0].id;
-            setCommunauteId(cultes[0].id);
-            }
+            if (culte) { cid = culte.id; setCommunauteId(culte.id); }
+            else if (cultes.length > 0) { cid = cultes[0].id; setCommunauteId(cultes[0].id); }
         }
 
         const [m, d, v, p] = await Promise.all([
             getMembres({ communaute_culte: cid }),
             getDepartements(cid),
-            getVisiteurs(),
+            // ✅ Visiteurs filtrés par la date d'aujourd'hui ET le culte
+            getVisiteurs({ date: dateDuJour, communaute_culte: cid }),
             getPresences(dateDuJour),
         ]);
 
-        setMembres(m);
-        setDepartements(d);
-        setVisiteurs(v);
+        const membresData = Array.isArray(m) ? m : [];
+        setMembres(membresData);
+        setDepartements(Array.isArray(d) ? d : []);
+        setVisiteurs(Array.isArray(v) ? v : []);
 
-        // Pré-cocher les membres déjà présents
+        // ✅ Pré-cocher seulement les membres de cette liste
+        const membresIds = new Set(membresData.map((mb: Membre) => mb.id));
         const dejaPresentIds = new Set<number>(
             (Array.isArray(p) ? p : [])
-            .filter((pr: Presence) => pr.present)
+            .filter((pr: Presence) => pr.present && membresIds.has(pr.membre))
             .map((pr: Presence) => pr.membre)
         );
         setMembresPresents(dejaPresentIds);
-        } catch (err) {
-        console.log("Erreur presences:", err);
+        } catch {
         Alert.alert("Erreur", "Impossible de charger les données.");
         } finally {
         setChargement(false);
@@ -112,13 +110,9 @@
             return;
         }
         const dates = [...new Set<string>(toutes.map((p: Presence) => p.date))]
-            .sort()
-            .reverse();
+            .sort().reverse();
         setDatesHistorique(dates);
         setPresencesHistorique(toutes);
-        } catch {
-        setDatesHistorique([]);
-        setPresencesHistorique([]);
         } finally {
         setChargementHistorique(false);
         }
@@ -126,8 +120,7 @@
 
     function togglePresence(id: number) {
         const nouveau = new Set(membresPresents);
-        if (nouveau.has(id)) nouveau.delete(id);
-        else nouveau.add(id);
+        if (nouveau.has(id)) nouveau.delete(id); else nouveau.add(id);
         setMembresPresents(nouveau);
     }
 
@@ -136,9 +129,12 @@
         (filtreDept ? m.departement === filtreDept : true)
     );
 
-    const nbPresents = membresPresents.size;
-    const nbAbsents = membres.length - nbPresents;
-    const taux = membres.length > 0 ? Math.round((nbPresents / membres.length) * 100) : 0;
+    // ✅ Stats corrigées — basées sur les membres de ce culte uniquement
+    const nbPresents = membres.filter(m => membresPresents.has(m.id)).length;
+    const nbAbsents = Math.max(0, membres.length - nbPresents);
+    const taux = membres.length > 0
+        ? Math.min(100, Math.round((nbPresents / membres.length) * 100))
+        : 0;
 
     function initiales(nom: string) {
         return nom.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
@@ -154,7 +150,7 @@
 
     async function sauvegarderPresences() {
         if (!communauteId) {
-        Alert.alert("Erreur", "Culte non identifié. Veuillez revenir et réessayer.");
+        Alert.alert("Erreur", "Culte non identifié.");
         return;
         }
         setSauvegarde(true);
@@ -180,10 +176,6 @@
         Alert.alert("Champs requis", "Le nom et le téléphone sont obligatoires.");
         return;
         }
-        if (!communauteId) {
-        Alert.alert("Erreur", "Culte non identifié.");
-        return;
-        }
         setAjoutVisiteurChargement(true);
         try {
         await createVisiteur({
@@ -191,8 +183,9 @@
             communaute_culte: communauteId,
             notes: "",
         });
-        const v = await getVisiteurs();
-        setVisiteurs(v);
+        // Recharger les visiteurs du jour
+        const v = await getVisiteurs({ date: dateDuJour, communaute_culte: communauteId });
+        setVisiteurs(Array.isArray(v) ? v : []);
         setFormulaireVisiteur(VISITEUR_VIDE);
         Alert.alert("✅ Visiteur ajouté !");
         setVue("pointage");
@@ -228,6 +221,7 @@
                 <Text style={styles.statPillLabel}>Absents</Text>
                 </View>
                 <View style={styles.statPill}>
+                {/* ✅ Visiteurs d'aujourd'hui seulement */}
                 <Text style={styles.statPillValeur}>{visiteurs.length}</Text>
                 <Text style={styles.statPillLabel}>Visiteurs</Text>
                 </View>
@@ -260,19 +254,18 @@
             </Pressable>
             </View>
 
+            {/* ✅ Filtres compacts */}
             <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             style={styles.deptFiltreScroll}
-            contentContainerStyle={{ gap: 6, paddingHorizontal: 12 }}
+            contentContainerStyle={{ flexDirection: "row", alignItems: "center" }}
             >
             <Pressable
                 style={[styles.deptPill, !filtreDept && styles.deptPillActif]}
                 onPress={() => setFiltreDept(null)}
             >
-                <Text style={[styles.deptPillText, !filtreDept && styles.deptPillTextActif]}>
-                Tous
-                </Text>
+                <Text style={[styles.deptPillText, !filtreDept && styles.deptPillTextActif]}>Tous</Text>
             </Pressable>
             {departements.map(d => (
                 <Pressable
@@ -345,10 +338,8 @@
     if (vue === "stats") {
         const totalFemmes = membres.filter(m => m.sexe === "feminin").length;
         const totalHommes = membres.filter(m => m.sexe === "masculin").length;
-        const femmesPresentes = [...membresPresents]
-        .filter(id => membres.find(m => m.id === id)?.sexe === "feminin").length;
-        const hommesPresents = [...membresPresents]
-        .filter(id => membres.find(m => m.id === id)?.sexe === "masculin").length;
+        const femmesPresentes = membres.filter(m => m.sexe === "feminin" && membresPresents.has(m.id)).length;
+        const hommesPresents = membres.filter(m => m.sexe === "masculin" && membresPresents.has(m.id)).length;
 
         return (
         <SafeAreaView style={styles.safe}>
@@ -420,10 +411,9 @@
                         <Text style={styles.deptStatNom}>{d.nom}</Text>
                         <Text style={styles.deptStatSub}>{presentsDept}/{membresDept.length} présents</Text>
                     </View>
-                    <Text style={[
-                        styles.deptStatTaux,
-                        { color: tauxDept >= 70 ? "#065F46" : tauxDept >= 50 ? "#854F0B" : "#991B1B" }
-                    ]}>
+                    <Text style={[styles.deptStatTaux, {
+                        color: tauxDept >= 70 ? "#065F46" : tauxDept >= 50 ? "#854F0B" : "#991B1B",
+                    }]}>
                         {tauxDept}%
                     </Text>
                     </View>
@@ -431,6 +421,7 @@
                 })}
             </View>
 
+            {/* ✅ Seulement les visiteurs du jour */}
             {visiteurs.length > 0 && (
                 <View style={styles.section}>
                 <Text style={styles.sectionTitre}>Visiteurs du jour ({visiteurs.length})</Text>
@@ -488,27 +479,17 @@
                     </Pressable>
                     {ouvert && (
                         <View style={styles.histDetail}>
-                        <Text style={styles.histSousTitre}>
-                            ✅ Présents ({presents.length})
-                        </Text>
+                        <Text style={styles.histSousTitre}>✅ Présents ({presents.length})</Text>
                         {presents.map(p => {
                             const m = membres.find(mb => mb.id === p.membre);
-                            return (
-                            <Text key={p.id} style={styles.histNom}>
-                                {m?.nom ?? "Membre inconnu"}
-                            </Text>
-                            );
+                            return <Text key={p.id} style={styles.histNom}>{m?.nom ?? "Inconnu"}</Text>;
                         })}
                         <Text style={[styles.histSousTitre, { marginTop: 10 }]}>
                             ❌ Absents ({absents.length})
                         </Text>
                         {absents.map(p => {
                             const m = membres.find(mb => mb.id === p.membre);
-                            return (
-                            <Text key={p.id} style={styles.histNom}>
-                                {m?.nom ?? "Membre inconnu"}
-                            </Text>
-                            );
+                            return <Text key={p.id} style={styles.histNom}>{m?.nom ?? "Inconnu"}</Text>;
                         })}
                         </View>
                     )}
@@ -584,10 +565,7 @@
                     style={[styles.choixBtn, formulaireVisiteur.sexe === s && styles.choixBtnActif]}
                     onPress={() => setFormulaireVisiteur({ ...formulaireVisiteur, sexe: s })}
                     >
-                    <Text style={[
-                        styles.choixBtnText,
-                        formulaireVisiteur.sexe === s && styles.choixBtnTextActif,
-                    ]}>
+                    <Text style={[styles.choixBtnText, formulaireVisiteur.sexe === s && styles.choixBtnTextActif]}>
                         {SEXE_LABELS[s]}
                     </Text>
                     </Pressable>

@@ -161,3 +161,6 @@ class Visiteur(models.Model):
     
 from .evenement_model import Evenement
 from .chat_models import Message
+from .notification_model import Notification
+from .pastoral_model import SuiviPastoral
+from .budget_model import BudgetAnnuel, LigneBudget

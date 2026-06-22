@@ -36,16 +36,26 @@
     },
     filterBtnText: { color: "#fff", fontSize: 16 },
 
+    // ✅ CORRIGÉ — pilules compactes horizontales
     statutFiltreScroll: {
-        backgroundColor: C.carte, paddingVertical: 8,
-        borderBottomWidth: 0.5, borderBottomColor: C.bordure,
+        backgroundColor: C.carte,
+        borderBottomWidth: 0.5,
+        borderBottomColor: C.bordure,
+        paddingVertical: 10,
+        paddingHorizontal: 12,
     },
     statutPill: {
-        paddingVertical: 5, paddingHorizontal: 12, borderRadius: 99,
-        borderWidth: 0.5, borderColor: C.bordure, marginRight: 6, backgroundColor: C.carte,
+        height: 32,
+        paddingHorizontal: 14,
+        borderRadius: 99,
+        borderWidth: 0.5,
+        borderColor: C.bordure,
+        marginRight: 8,
+        backgroundColor: C.carte,
+        justifyContent: "center",
     },
     statutPillActif: { backgroundColor: C.primaire, borderColor: C.primaire },
-    statutPillText: { fontSize: 12, color: C.texte },
+    statutPillText: { fontSize: 13, color: C.texte },
     statutPillTextActif: { color: "#fff", fontWeight: "700" },
 
     liste: { flex: 1, padding: 12 },
@@ -100,7 +110,6 @@
     infoLabel: { fontSize: 12, color: C.texteSec, width: 90 },
     infoValeur: { flex: 1, fontSize: 13, color: C.texte, fontWeight: "500" },
 
-    // Statuts
     statutsContainer: { gap: 8 },
     statutOption: {
         padding: 12, borderRadius: 10, borderWidth: 0.5,

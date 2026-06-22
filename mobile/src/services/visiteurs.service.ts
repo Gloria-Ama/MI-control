@@ -3,10 +3,14 @@
     export async function getVisiteurs(filtres?: {
     search?: string;
     statut?: string;
+    date?: string;
+    communaute_culte?: number;
     }) {
     const params = new URLSearchParams();
     if (filtres?.search) params.append("search", filtres.search);
     if (filtres?.statut) params.append("statut", filtres.statut);
+    if (filtres?.date) params.append("date", filtres.date);
+    if (filtres?.communaute_culte) params.append("communaute_culte", String(filtres.communaute_culte));
     const response = await api.get(`/visiteurs/?${params.toString()}`);
     return response.data;
     }
@@ -25,7 +29,6 @@
     await api.delete(`/visiteurs/${id}/`);
     }
 
-    // Convertir un visiteur en membre
     export async function convertirEnMembre(visiteur: any) {
     const response = await api.post("/membres/", {
         nom: visiteur.nom,
@@ -34,9 +37,8 @@
         sexe: visiteur.sexe,
         statut: "actif",
         notes: `Ancien visiteur. Première visite : ${visiteur.date_premiere_visite}`,
-        communaute_culte: visiteur.communaute_culte,
+        communautes_culte: visiteur.communaute_culte ? [visiteur.communaute_culte] : [],
     });
-    // Supprimer le visiteur après conversion
     await api.delete(`/visiteurs/${visiteur.id}/`);
     return response.data;
     }

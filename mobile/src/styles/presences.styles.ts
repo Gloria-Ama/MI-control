@@ -22,19 +22,48 @@
     statPillValeur: { color: "#fff", fontSize: 16, fontWeight: "700" },
     statPillLabel: { color: "rgba(255,255,255,0.7)", fontSize: 9, marginTop: 2 },
 
-    searchBar: { flexDirection: "row", gap: 6, padding: 10, backgroundColor: C.carte, borderBottomWidth: 0.5, borderBottomColor: C.bordure },
-    searchInput: { flex: 1, backgroundColor: C.fond, borderRadius: 8, padding: 9, fontSize: 13, color: C.texte, borderWidth: 0.5, borderColor: C.bordure },
-    toutBtn: { backgroundColor: C.primaire, borderRadius: 8, paddingHorizontal: 10, justifyContent: "center" },
+    searchBar: {
+        flexDirection: "row", gap: 6, padding: 10,
+        backgroundColor: C.carte, borderBottomWidth: 0.5, borderBottomColor: C.bordure,
+    },
+    searchInput: {
+        flex: 1, backgroundColor: C.fond, borderRadius: 8, padding: 9,
+        fontSize: 13, color: C.texte, borderWidth: 0.5, borderColor: C.bordure,
+    },
+    toutBtn: {
+        backgroundColor: C.primaire, borderRadius: 8,
+        paddingHorizontal: 10, justifyContent: "center",
+    },
     toutBtnText: { color: "#fff", fontSize: 12, fontWeight: "700" },
 
-    deptFiltreScroll: { backgroundColor: C.carte, paddingVertical: 8, borderBottomWidth: 0.5, borderBottomColor: C.bordure },
-    deptPill: { paddingVertical: 5, paddingHorizontal: 12, borderRadius: 99, borderWidth: 0.5, borderColor: C.bordure, backgroundColor: C.carte },
+    // ✅ CORRIGÉ — pilules compactes horizontales
+    deptFiltreScroll: {
+        backgroundColor: C.carte,
+        borderBottomWidth: 0.5,
+        borderBottomColor: C.bordure,
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+    },
+    deptPill: {
+        height: 32,
+        paddingHorizontal: 14,
+        borderRadius: 99,
+        borderWidth: 0.5,
+        borderColor: C.bordure,
+        backgroundColor: C.carte,
+        justifyContent: "center",
+        marginRight: 8,
+    },
     deptPillActif: { backgroundColor: C.primaire, borderColor: C.primaire },
-    deptPillText: { fontSize: 12, color: C.texte },
+    deptPillText: { fontSize: 13, color: C.texte },
     deptPillTextActif: { color: "#fff", fontWeight: "700" },
 
     liste: { flex: 1 },
-    membreRow: { backgroundColor: C.carte, marginHorizontal: 10, marginTop: 6, borderRadius: 12, padding: 12, flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 0.5, borderColor: C.bordure },
+    membreRow: {
+        backgroundColor: C.carte, marginHorizontal: 10, marginTop: 6,
+        borderRadius: 12, padding: 12, flexDirection: "row", alignItems: "center",
+        gap: 10, borderWidth: 0.5, borderColor: C.bordure,
+    },
     membreRowPresent: { backgroundColor: "#F0FDF4", borderColor: "#86EFAC" },
     avatar: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", flexShrink: 0 },
     avatarText: { color: "#fff", fontWeight: "700", fontSize: 13 },

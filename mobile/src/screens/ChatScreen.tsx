@@ -1,9 +1,12 @@
     import { useEffect, useRef, useState } from "react";
     import {
-    View, Text, TextInput, ScrollView, Pressable, FlatList,
-    ActivityIndicator, SafeAreaView, KeyboardAvoidingView, Platform,
+    View, Text, TextInput, ScrollView, Pressable,
+    Alert, ActivityIndicator, SafeAreaView, KeyboardAvoidingView, Platform,
     } from "react-native";
-    import { getConversations, getMessages, envoyerMessage, marquerLus } from "../services/chat.service";
+    import {
+    getConversations, getMessages, envoyerMessage,
+    envoyerMessageGroupe, marquerLus, getChatNonLus,
+    } from "../services/chat.service";
     import { getResponsables } from "../services/responsables.service";
     import { getProfilConnecte } from "../services/auth.service";
     import { cs } from "../styles/chat.Styles";
@@ -35,9 +38,11 @@
     role: string;
     };
 
-    type Vue = "conversations" | "chat" | "nouvelle";
+    type Vue = "conversations" | "chat" | "nouvelle" | "groupe";
 
-    export default function ChatScreen() {
+    type Props = { onRetour?: () => void };
+
+    export default function ChatScreen({ onRetour }: Props) {
     const [vue, setVue] = useState<Vue>("conversations");
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [messages, setMessages] = useState<Message[]>([]);
@@ -49,6 +54,7 @@
     const [envoi, setEnvoi] = useState(false);
     const [recherche, setRecherche] = useState("");
     const [refreshInterval, setRefreshInterval] = useState<any>(null);
+    const [totalNonLus, setTotalNonLus] = useState(0);
     const scrollRef = useRef<ScrollView>(null);
 
     useEffect(() => {
@@ -58,7 +64,6 @@
 
     useEffect(() => {
         if (vue === "chat" && interlocuteur) {
-        // Rafraîchir les messages toutes les 5 secondes
         const interval = setInterval(() => {
             chargerMessages(interlocuteur.id, false);
         }, 5000);
@@ -72,14 +77,16 @@
     async function chargerDonnees() {
         setChargement(true);
         try {
-        const [p, c, r] = await Promise.all([
+        const [p, c, r, nl] = await Promise.all([
             getProfilConnecte().catch(() => null),
             getConversations().catch(() => []),
             getResponsables().catch(() => []),
+            getChatNonLus().catch(() => ({ non_lus: 0 })),
         ]);
         setProfil(p);
         setConversations(Array.isArray(c) ? c : []);
         setResponsables(Array.isArray(r) ? r : []);
+        setTotalNonLus(nl.non_lus ?? 0);
         } finally {
         setChargement(false);
         }
@@ -90,12 +97,11 @@
         try {
         const m = await getMessages(userId);
         setMessages(Array.isArray(m) ? m : []);
-        // Marquer comme lus
         await marquerLus(userId).catch(() => {});
-        // Rafraîchir les conversations
         const c = await getConversations().catch(() => []);
         setConversations(Array.isArray(c) ? c : []);
-        // Scroller en bas
+        const nl = await getChatNonLus().catch(() => ({ non_lus: 0 }));
+        setTotalNonLus(nl.non_lus ?? 0);
         setTimeout(() => scrollRef.current?.scrollToEnd({ animated: false }), 100);
         } finally {
         if (avecChargement) setChargement(false);
@@ -123,7 +129,25 @@
         await envoyerMessage(interlocuteur.id, contenu);
         await chargerMessages(interlocuteur.id, false);
         } catch {
-        setTexte(contenu); // Remettre le texte si erreur
+        setTexte(contenu);
+        } finally {
+        setEnvoi(false);
+        }
+    }
+
+    async function handleEnvoiGroupe() {
+        if (!texte.trim() || envoi) return;
+        setEnvoi(true);
+        const contenu = texte.trim();
+        setTexte("");
+        try {
+        const result = await envoyerMessageGroupe(contenu);
+        Alert.alert("✅ Message envoyé", result.detail ?? "Message envoyé à tous les responsables.");
+        await chargerDonnees();
+        setVue("conversations");
+        } catch {
+        setTexte(contenu);
+        Alert.alert("Erreur", "Impossible d'envoyer le message de groupe.");
         } finally {
         setEnvoi(false);
         }
@@ -153,11 +177,10 @@
     }
 
     function couleur(nom: string) {
-        const c = ["#07074C", "#4F46E5", "#0F6E56", "#854F0B", "#7C3AED", "#BE185D"];
+        const c = ["#07074C", "#4F46E5", "#0F6E56", "#854F0B", "#BE185D"];
         return c[nom.charCodeAt(0) % c.length];
     }
 
-    // Grouper messages par date pour les séparateurs
     function groupesParDate() {
         const groupes: { date: string; messages: Message[] }[] = [];
         let dateActuelle = "";
@@ -178,21 +201,26 @@
     const convFiltrees = conversations.filter(c =>
         c.interlocuteur_nom.toLowerCase().includes(recherche.toLowerCase())
     );
-
-    const totalNonLus = conversations.reduce((acc, c) => acc + c.non_lus, 0);
-
-    // Responsables sauf moi-même
     const autresResponsables = responsables.filter(r => r.username !== profil?.username);
 
     // ── CONVERSATIONS ──────────────────────────────────────────────────────────
     if (vue === "conversations") {
         return (
         <SafeAreaView style={cs.safe}>
+            {/* Header avec retour */}
             <View style={cs.header}>
-            <Text style={cs.headerTitre}>💬 Messages</Text>
+            {onRetour && (
+                <Pressable onPress={onRetour} style={{ marginRight: 10 }}>
+                <Text style={{ color: "#94A3B8", fontSize: 22 }}>‹</Text>
+                </Pressable>
+            )}
+            <Text style={[cs.headerTitre, { flex: 1 }]}>
+                💬 Messages
+                {totalNonLus > 0 ? ` (${totalNonLus})` : ""}
+            </Text>
             {totalNonLus > 0 && (
                 <View style={cs.headerBadge}>
-                <Text style={cs.headerBadgeTexte}>{totalNonLus} non lu{totalNonLus > 1 ? "s" : ""}</Text>
+                <Text style={cs.headerBadgeTexte}>{totalNonLus}</Text>
                 </View>
             )}
             </View>
@@ -200,7 +228,7 @@
             <View style={cs.searchBar}>
             <TextInput
                 style={cs.searchInput}
-                placeholder="🔍  Rechercher une conversation..."
+                placeholder="🔍  Rechercher..."
                 placeholderTextColor="#94A3B8"
                 value={recherche}
                 onChangeText={setRecherche}
@@ -211,6 +239,21 @@
             <ActivityIndicator style={{ marginTop: 40 }} color="#07074C" size="large" />
             ) : (
             <ScrollView>
+                {/* ✅ Message de groupe */}
+                <Pressable
+                style={[cs.convCard, { backgroundColor: "#EEF2FF" }]}
+                onPress={() => setVue("groupe")}
+                >
+                <View style={[cs.avatar, { backgroundColor: "#4F46E5" }]}>
+                    <Text style={cs.avatarTexte}>📢</Text>
+                </View>
+                <View style={cs.convInfo}>
+                    <Text style={[cs.convNom, { color: "#4F46E5" }]}>Message de groupe</Text>
+                    <Text style={cs.convDernier}>Écrire à tous les responsables</Text>
+                </View>
+                <Text style={{ fontSize: 18, color: "#94A3B8" }}>›</Text>
+                </Pressable>
+
                 {convFiltrees.length === 0 && (
                 <Text style={cs.videTexte}>
                     Aucune conversation.{"\n"}Appuyez sur ✏️ pour écrire un message.
@@ -251,6 +294,68 @@
         );
     }
 
+    // ── MESSAGE DE GROUPE ──────────────────────────────────────────────────────
+    if (vue === "groupe") {
+        return (
+        <SafeAreaView style={cs.safe}>
+            <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            >
+            <View style={cs.chatHeader}>
+                <Pressable onPress={() => setVue("conversations")} style={cs.retourBtn}>
+                <Text style={cs.retourText}>‹</Text>
+                </Pressable>
+                <View style={[cs.chatHeaderAvatar, { backgroundColor: "#4F46E5" }]}>
+                <Text style={cs.chatHeaderAvatarTexte}>📢</Text>
+                </View>
+                <View>
+                <Text style={cs.chatHeaderNom}>Message de groupe</Text>
+                <Text style={cs.chatHeaderSub}>
+                    {responsables.length - 1} responsable{(responsables.length - 1) > 1 ? "s" : ""}
+                </Text>
+                </View>
+            </View>
+
+            <View style={{ flex: 1, justifyContent: "center", padding: 20 }}>
+                <View style={{
+                backgroundColor: "#EEF2FF", borderRadius: 14,
+                padding: 14, marginBottom: 20, borderWidth: 0.5, borderColor: "#C7D2FE",
+                }}>
+                <Text style={{ fontSize: 13, color: "#4F46E5", fontWeight: "600", marginBottom: 4 }}>
+                    📢 Ce message sera envoyé à :
+                </Text>
+                {autresResponsables.map(r => (
+                    <Text key={r.id} style={{ fontSize: 13, color: "#1E293B", paddingVertical: 2 }}>
+                    • {r.username}
+                    </Text>
+                ))}
+                </View>
+            </View>
+
+            <View style={cs.saisieContainer}>
+                <TextInput
+                style={cs.saisieInput}
+                value={texte}
+                onChangeText={setTexte}
+                placeholder="Écrire un message pour tout le groupe..."
+                placeholderTextColor="#94A3B8"
+                multiline
+                maxLength={1000}
+                />
+                <Pressable
+                style={[cs.envoiBtn, !texte.trim() && cs.envoiBtnVide]}
+                onPress={handleEnvoiGroupe}
+                disabled={!texte.trim() || envoi}
+                >
+                <Text style={cs.envoiIcone}>{envoi ? "⏳" : "➤"}</Text>
+                </Pressable>
+            </View>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
+        );
+    }
+
     // ── NOUVEAU MESSAGE ────────────────────────────────────────────────────────
     if (vue === "nouvelle") {
         return (
@@ -266,10 +371,21 @@
             </View>
 
             <ScrollView>
+            {/* Option groupe */}
+            <Pressable
+                style={[cs.destCard, { backgroundColor: "#EEF2FF" }]}
+                onPress={() => setVue("groupe")}
+            >
+                <View style={[cs.avatar, { backgroundColor: "#4F46E5", width: 42, height: 42, borderRadius: 21 }]}>
+                <Text style={[cs.avatarTexte, { fontSize: 20 }]}>📢</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                <Text style={[cs.destNom, { color: "#4F46E5" }]}>Tout le groupe</Text>
+                <Text style={cs.destRole}>Envoyer à tous les responsables</Text>
+                </View>
+            </Pressable>
+
             <Text style={cs.destTitre}>Responsables ({autresResponsables.length})</Text>
-            {autresResponsables.length === 0 && (
-                <Text style={cs.videTexte}>Aucun autre responsable disponible.</Text>
-            )}
             {autresResponsables.map(r => {
                 const dejaConversation = conversations.find(c => c.interlocuteur_id === r.id);
                 return (
@@ -299,7 +415,6 @@
     // ── CHAT ───────────────────────────────────────────────────────────────────
     if (vue === "chat" && interlocuteur) {
         const groupes = groupesParDate();
-
         return (
         <SafeAreaView style={cs.safe}>
             <KeyboardAvoidingView
@@ -307,10 +422,14 @@
             behavior={Platform.OS === "ios" ? "padding" : undefined}
             keyboardVerticalOffset={0}
             >
-            {/* Header */}
+            {/* ✅ Header avec bouton retour vers la liste */}
             <View style={cs.chatHeader}>
                 <Pressable
-                onPress={() => { setVue("conversations"); setMessages([]); chargerDonnees(); }}
+                onPress={() => {
+                    setVue("conversations");
+                    setMessages([]);
+                    chargerDonnees();
+                }}
                 style={cs.retourBtn}
                 >
                 <Text style={cs.retourText}>‹</Text>
@@ -326,7 +445,6 @@
                 </View>
             </View>
 
-            {/* Messages */}
             {chargement ? (
                 <ActivityIndicator style={{ flex: 1 }} color="#07074C" />
             ) : (
@@ -341,7 +459,6 @@
                     Commencez la conversation !
                     </Text>
                 )}
-
                 {groupes.map(groupe => (
                     <View key={groupe.date}>
                     <View style={cs.dateSeparateur}>
@@ -377,7 +494,6 @@
                 </ScrollView>
             )}
 
-            {/* Zone de saisie */}
             <View style={cs.saisieContainer}>
                 <TextInput
                 style={cs.saisieInput}
@@ -387,16 +503,13 @@
                 placeholderTextColor="#94A3B8"
                 multiline
                 maxLength={1000}
-                onSubmitEditing={handleEnvoi}
                 />
                 <Pressable
                 style={[cs.envoiBtn, !texte.trim() && cs.envoiBtnVide]}
                 onPress={handleEnvoi}
                 disabled={!texte.trim() || envoi}
                 >
-                <Text style={cs.envoiIcone}>
-                    {envoi ? "⏳" : "➤"}
-                </Text>
+                <Text style={cs.envoiIcone}>{envoi ? "⏳" : "➤"}</Text>
                 </Pressable>
             </View>
             </KeyboardAvoidingView>
