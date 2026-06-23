@@ -5,65 +5,86 @@ from .evenement_model import Evenement
 from .notification_model import Notification
 from .pastoral_model import SuiviPastoral
 from .budget_model import BudgetAnnuel, LigneBudget
-
+from .group_chat_model import MessageGroupe, SondageGroupe, OptionSondage, VoteSondage
+from .canal_model import Canal, MembreCanal, MessageCanal, LectureMessage, SondageCanal, OptionSondageCanal, VoteSondageCanal
+from .notes_model import NotePersonnelle
+from .culte_model import ProgrammeCulte, ElementProgramme
 
 class CommunauteCulteSerializer(serializers.ModelSerializer):
     class Meta:
         model = CommunauteCulte
         fields = ["id", "nom", "description"]
 
-
 class DepartementSerializer(serializers.ModelSerializer):
     communaute_nom = serializers.CharField(source="communaute_culte.nom", read_only=True)
+    responsable_nom = serializers.SerializerMethodField()
+    responsable_id = serializers.SerializerMethodField()
 
     class Meta:
         model = Departement
-        fields = ["id", "nom", "description", "communaute_culte", "communaute_nom"]
+        fields = [
+            "id", "nom", "description", "communaute_culte",
+            "communaute_nom", "responsable_nom", "responsable_id",
+        ]
 
+    def get_responsable_nom(self, obj):
+        try:
+            resp = Responsable.objects.filter(
+                departement=obj, actif=True
+            ).first()
+            return resp.user.username if resp else None
+        except Exception:
+            return None
+
+    def get_responsable_id(self, obj):
+        try:
+            resp = Responsable.objects.filter(
+                departement=obj, actif=True
+            ).first()
+            return resp.id if resp else None
+        except Exception:
+            return None
 
 class MembreSerializer(serializers.ModelSerializer):
-    departement_nom = serializers.SerializerMethodField()
-    taux_presence = serializers.SerializerMethodField()
-    absences_recentes = serializers.SerializerMethodField()
+    departements_noms = serializers.SerializerMethodField()
     communautes_culte = serializers.PrimaryKeyRelatedField(
-        many=True, queryset=CommunauteCulte.objects.all(),
+        many=True, queryset=CommunauteCulte.objects.all()
     )
-    communautes_noms = serializers.SerializerMethodField()
+    departements = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=Departement.objects.all()
+    )
 
     class Meta:
         model = Membre
         fields = [
             "id", "nom", "telephone", "email", "sexe",
-            "date_anniversaire", "adresse", "departement",
-            "departement_nom", "date_integration", "statut",
-            "notes", "communautes_culte", "communautes_noms",
-            "taux_presence", "absences_recentes",
+            "date_anniversaire", "adresse", "statut", "notes",
+            "communautes_culte", "departements", "departements_noms",
+            "date_integration",
         ]
 
-    def get_departement_nom(self, obj):
-        return obj.departement.nom if obj.departement else None
+    def get_departements_noms(self, obj):
+        return [d.nom for d in obj.departements.all()]
 
-    def get_communautes_noms(self, obj):
-        return [c.nom for c in obj.communautes_culte.all()]
+    def create(self, validated_data):
+        departements = validated_data.pop("departements", [])
+        communautes = validated_data.pop("communautes_culte", [])
+        membre = Membre.objects.create(**validated_data)
+        membre.departements.set(departements)
+        membre.communautes_culte.set(communautes)
+        return membre
 
-    def get_taux_presence(self, obj):
-        presences = obj.presences.all()
-        total = presences.count()
-        if total == 0:
-            return None
-        presents = presences.filter(present=True).count()
-        return round((presents / total) * 100)
-
-    def get_absences_recentes(self, obj):
-        presences = obj.presences.order_by("-date")[:5]
-        count = 0
-        for p in presences:
-            if not p.present:
-                count += 1
-            else:
-                break
-        return count
-
+    def update(self, instance, validated_data):
+        departements = validated_data.pop("departements", None)
+        communautes = validated_data.pop("communautes_culte", None)
+        for attr, val in validated_data.items():
+            setattr(instance, attr, val)
+        instance.save()
+        if departements is not None:
+            instance.departements.set(departements)
+        if communautes is not None:
+            instance.communautes_culte.set(communautes)
+        return instance
 
 class VisiteurSerializer(serializers.ModelSerializer):
     class Meta:
@@ -82,13 +103,21 @@ class PresenceSerializer(serializers.ModelSerializer):
 class ResponsableSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source="user.username", read_only=True)
     email = serializers.EmailField(source="user.email", read_only=True)
+    photo_url = serializers.SerializerMethodField()
 
+    def get_photo_url(self, obj):
+        if obj.photo:
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(obj.photo.url)
+            return obj.photo.url
+        return None
     class Meta:
         model = Responsable
         fields = [
             "id", "username", "email", "role",
             "communaute_culte", "departement",
-            "mot_de_passe_change", "actif",
+            "mot_de_passe_change", "actif","photo_url",
         ]
 
 
@@ -201,3 +230,227 @@ class BudgetAnnuelSerializer(serializers.ModelSerializer):
         if prevu > 0:
             return round((float(realise) / float(prevu)) * 100)
         return 0
+    
+
+
+
+class OptionSondageSerializer(serializers.ModelSerializer):
+    nb_votes = serializers.SerializerMethodField()
+    a_vote = serializers.SerializerMethodField()
+
+    class Meta:
+        model = OptionSondage
+        fields = ["id", "texte", "ordre", "nb_votes", "a_vote"]
+
+    def get_nb_votes(self, obj):
+        return obj.votes.count()
+
+    def get_a_vote(self, obj):
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            return obj.votes.filter(votant=request.user).exists()
+        return False
+
+
+class SondageGroupeSerializer(serializers.ModelSerializer):
+    options = OptionSondageSerializer(many=True, read_only=True)
+    total_votes = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SondageGroupe
+        fields = ["id", "question", "date_fin", "actif", "options", "total_votes"]
+
+    def get_total_votes(self, obj):
+        return VoteSondage.objects.filter(option__sondage=obj).count()
+
+
+class MessageGroupeSerializer(serializers.ModelSerializer):
+    auteur_nom = serializers.CharField(source="auteur.username", read_only=True)
+    sondage = SondageGroupeSerializer(read_only=True)
+    fichier_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = MessageGroupe
+        fields = [
+            "id", "auteur", "auteur_nom", "communaute_culte",
+            "tous_les_cultes", "contenu", "type",
+            "fichier", "fichier_url", "nom_fichier",
+            "date_envoi", "sondage",
+        ]
+
+    def get_fichier_url(self, obj):
+        if obj.fichier:
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(obj.fichier.url)
+            return obj.fichier.url
+        return None
+
+from .group_chat_model import MessageGroupe, SondageGroupe, OptionSondage, VoteSondage
+
+class OptionSondageSerializer(serializers.ModelSerializer):
+    nb_votes = serializers.SerializerMethodField()
+    a_vote = serializers.SerializerMethodField()
+    class Meta:
+        model = OptionSondage
+        fields = ["id", "texte", "ordre", "nb_votes", "a_vote"]
+    def get_nb_votes(self, obj):
+        return obj.votes.count()
+    def get_a_vote(self, obj):
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            return obj.votes.filter(votant=request.user).exists()
+        return False
+
+class SondageGroupeSerializer(serializers.ModelSerializer):
+    options = OptionSondageSerializer(many=True, read_only=True)
+    total_votes = serializers.SerializerMethodField()
+    class Meta:
+        model = SondageGroupe
+        fields = ["id", "question", "date_fin", "actif", "options", "total_votes"]
+    def get_total_votes(self, obj):
+        return VoteSondage.objects.filter(option__sondage=obj).count()
+
+class MessageGroupeSerializer(serializers.ModelSerializer):
+    auteur_nom = serializers.CharField(source="auteur.username", read_only=True)
+    sondage = SondageGroupeSerializer(read_only=True)
+    fichier_url = serializers.SerializerMethodField()
+    class Meta:
+        model = MessageGroupe
+        fields = ["id", "auteur", "auteur_nom", "communaute_culte", "tous_les_cultes",
+                "contenu", "type", "fichier", "fichier_url", "nom_fichier", "date_envoi", "sondage"]
+    def get_fichier_url(self, obj):
+        if obj.fichier:
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(obj.fichier.url)
+            return obj.fichier.url
+        return None
+class MembreCanalSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source="user.username", read_only=True)
+    class Meta:
+        model = MembreCanal
+        fields = ["id", "user", "username", "est_admin", "date_ajout"]
+
+class OptionSondageCanalSerializer(serializers.ModelSerializer):
+    nb_votes = serializers.SerializerMethodField()
+    a_vote = serializers.SerializerMethodField()
+    class Meta:
+        model = OptionSondageCanal
+        fields = ["id", "texte", "ordre", "nb_votes", "a_vote"]
+    def get_nb_votes(self, obj):
+        return obj.votes.count()
+    def get_a_vote(self, obj):
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            return obj.votes.filter(votant=request.user).exists()
+        return False
+
+class SondageCanalSerializer(serializers.ModelSerializer):
+    options = OptionSondageCanalSerializer(many=True, read_only=True)
+    total_votes = serializers.SerializerMethodField()
+    class Meta:
+        model = SondageCanal
+        fields = ["id", "question", "actif", "options", "total_votes"]
+    def get_total_votes(self, obj):
+        return VoteSondageCanal.objects.filter(option__sondage=obj).count()
+
+class MessageCanalSerializer(serializers.ModelSerializer):
+    auteur_nom = serializers.CharField(source="auteur.username", read_only=True)
+    sondage = SondageCanalSerializer(read_only=True)
+    fichier_url = serializers.SerializerMethodField()
+    lu = serializers.SerializerMethodField()
+
+    class Meta:
+        model = MessageCanal
+        fields = ["id", "canal", "auteur", "auteur_nom", "contenu", "type",
+                  "fichier", "fichier_url", "nom_fichier", "date_envoi", "sondage", "lu"]
+
+    def get_fichier_url(self, obj):
+        if obj.fichier:
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(obj.fichier.url)
+        return None
+
+    def get_lu(self, obj):
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            return obj.lectures.filter(user=request.user).exists() or obj.auteur == request.user
+        return False
+
+class CanalSerializer(serializers.ModelSerializer):
+    membres = MembreCanalSerializer(many=True, read_only=True)
+    nb_membres = serializers.SerializerMethodField()
+    dernier_message = serializers.SerializerMethodField()
+    non_lus = serializers.SerializerMethodField()
+    type_label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Canal
+        fields = ["id", "nom", "description", "type", "type_label", "createur",
+                  "communaute_culte", "date_creation", "membres", "nb_membres",
+                  "dernier_message", "non_lus"]
+
+    def get_nb_membres(self, obj):
+        return obj.membres.count()
+
+    def get_dernier_message(self, obj):
+        msg = obj.messages.order_by("-date_envoi").first()
+        if msg:
+            return {
+                "contenu": msg.contenu or f"[{msg.type}]",
+                "auteur": msg.auteur.username,
+                "date": msg.date_envoi.isoformat(),
+                "type": msg.type,
+            }
+        return None
+
+    def get_non_lus(self, obj):
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            return obj.nb_non_lus(request.user)
+        return 0
+
+    def get_type_label(self, obj):
+        return obj.get_type_display()
+
+class NotePersonnelleSerializer(serializers.ModelSerializer):
+    auteur_nom = serializers.CharField(source="auteur.username", read_only=True)
+
+    class Meta:
+        model = NotePersonnelle
+        fields = [
+            "id", "titre", "contenu", "couleur", "epinglee",
+            "auteur_nom", "date_creation", "date_modification",
+        ]
+
+
+class ElementProgrammeSerializer(serializers.ModelSerializer):
+    type_label = serializers.CharField(source="get_type_display", read_only=True)
+
+    class Meta:
+        model = ElementProgramme
+        fields = [
+            "id", "programme", "type", "type_label",
+            "titre", "responsable", "duree_minutes",
+            "ordre", "notes", "complete",
+        ]
+
+
+class ProgrammeCulteSerializer(serializers.ModelSerializer):
+    elements         = ElementProgrammeSerializer(many=True, read_only=True)
+    cree_par_nom     = serializers.CharField(source="cree_par.username", read_only=True)
+    duree_totale     = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProgrammeCulte
+        fields = [
+            "id", "communaute_culte", "date", "theme",
+            "predicateur", "verset_cle", "notes_generales",
+            "cree_par", "cree_par_nom", "elements",
+            "duree_totale", "date_creation",
+        ]
+
+    def get_duree_totale(self, obj):
+        return sum(e.duree_minutes for e in obj.elements.all())

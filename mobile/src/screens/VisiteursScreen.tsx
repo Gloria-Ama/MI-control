@@ -9,8 +9,6 @@
     } from "../services/visiteurs.service";
     import { styles, STATUT_COULEURS } from "../styles/visiteurs.styles";
 
-    // ─── Types ────────────────────────────────────────────────────────────────────
-
     type Visiteur = {
     id: number; nom: string; telephone: string; email: string;
     sexe: string; date_premiere_visite: string; nombre_visites: number;
@@ -25,19 +23,14 @@
     };
 
     const STATUTS = [
-    { valeur: "nouveau",         label: "Nouveau",          desc: "Vient d'arriver, pas encore contacté" },
+    { valeur: "nouveau",         label: "Nouveau",         desc: "Vient d'arriver, pas encore contacté" },
     { valeur: "contacte",        label: "Contacté",         desc: "A été appelé ou rencontré" },
     { valeur: "en_suivi",        label: "En suivi",         desc: "Suivi régulier en cours" },
     { valeur: "integre",         label: "Intégré",          desc: "Participe activement à l'église" },
     { valeur: "converti_membre", label: "Converti membre",  desc: "Devenu membre officiel" },
     ];
 
-    const VISITEUR_VIDE = {
-    nom: "", telephone: "", email: "", sexe: "",
-    statut: "nouveau", notes: "", communaute_culte: 1,
-    };
-
-    // ─── Composant principal ──────────────────────────────────────────────────────
+    const VISITEUR_VIDE = { nom: "", telephone: "", email: "", sexe: "", statut: "nouveau", notes: "", communaute_culte: 1 };
 
     export default function VisiteursScreen() {
     const [visiteurs, setVisiteurs] = useState<Visiteur[]>([]);
@@ -59,30 +52,20 @@
         setVisiteurs(data);
         } catch {
         Alert.alert("Erreur", "Impossible de charger les visiteurs.");
-        } finally {
-        setChargement(false);
-        }
+        } finally { setChargement(false); }
     }
 
     async function sauvegarder() {
-        if (!formulaire.nom.trim()) {
-        Alert.alert("Champ requis", "Le nom est obligatoire.");
-        return;
-        }
+        if (!formulaire.nom.trim()) { Alert.alert("Champ requis", "Le nom est obligatoire."); return; }
         setSauvegarde(true);
         try {
-        if (modeEdition && visiteurSelectionne) {
-            await updateVisiteur(visiteurSelectionne.id, formulaire);
-        } else {
-            await createVisiteur(formulaire);
-        }
+        if (modeEdition && visiteurSelectionne) await updateVisiteur(visiteurSelectionne.id, formulaire);
+        else await createVisiteur(formulaire);
         await chargerVisiteurs();
         setVue("liste");
         } catch {
         Alert.alert("Erreur", "Impossible de sauvegarder.");
-        } finally {
-        setSauvegarde(false);
-        }
+        } finally { setSauvegarde(false); }
     }
 
     async function changerStatut(visiteur: Visiteur, statut: string) {
@@ -90,77 +73,41 @@
         await updateVisiteur(visiteur.id, { ...visiteur, statut });
         await chargerVisiteurs();
         setVisiteurSelectionne({ ...visiteur, statut });
-        } catch {
-        Alert.alert("Erreur", "Impossible de changer le statut.");
-        }
+        } catch { Alert.alert("Erreur", "Impossible de changer le statut."); }
     }
 
     async function confirmerConversion(visiteur: Visiteur) {
-        Alert.alert(
-        "Convertir en membre ?",
-        `${visiteur.nom} sera ajouté comme membre et retiré de la liste des visiteurs.`,
-        [
-            { text: "Annuler", style: "cancel" },
-            {
-            text: "Convertir", style: "default",
-            onPress: async () => {
-                try {
-                await convertirEnMembre(visiteur);
-                Alert.alert("✅ Succès", `${visiteur.nom} est maintenant un membre.`);
-                await chargerVisiteurs();
-                setVue("liste");
-                } catch {
-                Alert.alert("Erreur", "Impossible de convertir le visiteur.");
-                }
-            },
-            },
-        ]
-        );
+        Alert.alert("Convertir en membre ?", `${visiteur.nom} sera ajouté comme membre.`, [
+        { text: "Annuler", style: "cancel" },
+        { text: "Convertir", onPress: async () => {
+            try {
+            await convertirEnMembre(visiteur);
+            Alert.alert("✅ Succès", `${visiteur.nom} est maintenant un membre.`);
+            await chargerVisiteurs(); setVue("liste");
+            } catch { Alert.alert("Erreur", "Impossible de convertir."); }
+        }},
+        ]);
     }
 
     async function confirmerSuppression(visiteur: Visiteur) {
-        Alert.alert(
-        "Supprimer ce visiteur ?",
-        `${visiteur.nom} sera supprimé définitivement.`,
-        [
-            { text: "Annuler", style: "cancel" },
-            {
-            text: "Supprimer", style: "destructive",
-            onPress: async () => {
-                await deleteVisiteur(visiteur.id);
-                await chargerVisiteurs();
-                setVue("liste");
-            },
-            },
-        ]
-        );
+        Alert.alert("Supprimer ?", `${visiteur.nom} sera supprimé définitivement.`, [
+        { text: "Annuler", style: "cancel" },
+        { text: "Supprimer", style: "destructive", onPress: async () => {
+            await deleteVisiteur(visiteur.id); await chargerVisiteurs(); setVue("liste");
+        }},
+        ]);
     }
 
-    function ouvrirDetail(visiteur: Visiteur) {
-        setVisiteurSelectionne(visiteur);
-        setVue("detail");
-    }
-
-    function ouvrirFormulaire(visiteur?: Visiteur) {
-        if (visiteur) {
-        setFormulaire({ ...visiteur });
-        setModeEdition(true);
-        } else {
-        setFormulaire(VISITEUR_VIDE);
-        setModeEdition(false);
-        }
+    function ouvrirDetail(v: Visiteur) { setVisiteurSelectionne(v); setVue("detail"); }
+    function ouvrirFormulaire(v?: Visiteur) {
+        if (v) { setFormulaire({ ...v }); setModeEdition(true); }
+        else { setFormulaire(VISITEUR_VIDE); setModeEdition(false); }
         setVue("formulaire");
     }
 
-    function initiales(nom: string) {
-        return nom.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
-    }
-
+    function initiales(nom: string) { return nom.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2); }
     function couleurAvatar(statut: string) {
-        const map: Record<string, string> = {
-        nouveau: "#0C447C", contacte: "#633806",
-        en_suivi: "#3C3489", integre: "#065F46", converti_membre: "#444441",
-        };
+        const map: Record<string, string> = { nouveau: "#0C447C", contacte: "#633806", en_suivi: "#3C3489", integre: "#065F46", converti_membre: "#444441" };
         return map[statut] ?? "#07074C";
     }
 
@@ -170,16 +117,16 @@
         return matchRecherche && matchStatut;
     });
 
-    // Compteurs par statut
     const compteurs = STATUTS.reduce((acc, s) => {
         acc[s.valeur] = visiteurs.filter(v => v.statut === s.valeur).length;
         return acc;
     }, {} as Record<string, number>);
 
-    // ─── VUE LISTE ─────────────────────────────────────────────────────────────
+    // ── LISTE ────────────────────────────────────────────────────────────────
     if (vue === "liste") {
         return (
-        <SafeAreaView style={styles.safe}>
+        <SafeAreaView style={[styles.safe, { flex: 1 }]}>
+            {/* Recherche */}
             <View style={styles.searchBar}>
             <TextInput
                 style={styles.searchInput}
@@ -193,11 +140,12 @@
             </Pressable>
             </View>
 
-            {/* Filtre par statut */}
+            {/* ✅ FIX : flexGrow: 0 pour limiter la hauteur du filtre */}
             <ScrollView
-            horizontal showsHorizontalScrollIndicator={false}
-            style={styles.statutFiltreScroll}
-            contentContainerStyle={{ gap: 6, paddingHorizontal: 12 }}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={[styles.statutFiltreScroll, { flexGrow: 0 }]}
+            contentContainerStyle={{ gap: 6, paddingHorizontal: 12, paddingVertical: 8, alignItems: "center" }}
             >
             <Pressable
                 style={[styles.statutPill, !filtreStatut && styles.statutPillActif]}
@@ -220,10 +168,11 @@
             ))}
             </ScrollView>
 
+            {/* ✅ FIX : flex: 1 pour que la liste prenne l'espace restant */}
             {chargement ? (
             <ActivityIndicator style={{ marginTop: 40 }} color="#07074C" />
             ) : (
-            <ScrollView style={styles.liste} contentContainerStyle={{ paddingBottom: 100 }}>
+            <ScrollView style={[styles.liste, { flex: 1 }]} contentContainerStyle={{ paddingBottom: 100 }}>
                 <Text style={styles.compteLabel}>
                 {visiteursFiltres.length} visiteur{visiteursFiltres.length > 1 ? "s" : ""}
                 </Text>
@@ -265,7 +214,7 @@
         );
     }
 
-    // ─── VUE DÉTAIL ────────────────────────────────────────────────────────────
+    // ── DÉTAIL ───────────────────────────────────────────────────────────────
     if (vue === "detail" && visiteurSelectionne) {
         const v = visiteurSelectionne;
         return (
@@ -279,33 +228,17 @@
                 <Text style={styles.detailAvatarText}>{initiales(v.nom)}</Text>
                 </View>
                 <Text style={styles.detailNom}>{v.nom}</Text>
-                <Text style={styles.detailSub}>
-                {v.nombre_visites} visite{v.nombre_visites > 1 ? "s" : ""} · depuis le {v.date_premiere_visite}
-                </Text>
+                <Text style={styles.detailSub}>{v.nombre_visites} visite{v.nombre_visites > 1 ? "s" : ""} · depuis le {v.date_premiere_visite}</Text>
             </View>
 
             <View style={styles.detailBody}>
-                {/* Infos */}
                 <View style={styles.section}>
                 <Text style={styles.sectionTitre}>Informations</Text>
-                <View style={styles.infoRow}>
-                    <Text style={styles.infoIcone}>📞</Text>
-                    <Text style={styles.infoLabel}>Téléphone</Text>
-                    <Text style={styles.infoValeur}>{v.telephone || "—"}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                    <Text style={styles.infoIcone}>✉️</Text>
-                    <Text style={styles.infoLabel}>Email</Text>
-                    <Text style={styles.infoValeur}>{v.email || "—"}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                    <Text style={styles.infoIcone}>👤</Text>
-                    <Text style={styles.infoLabel}>Sexe</Text>
-                    <Text style={styles.infoValeur}>{SEXE_LABELS[v.sexe] ?? "—"}</Text>
-                </View>
+                <View style={styles.infoRow}><Text style={styles.infoIcone}>📞</Text><Text style={styles.infoLabel}>Téléphone</Text><Text style={styles.infoValeur}>{v.telephone || "—"}</Text></View>
+                <View style={styles.infoRow}><Text style={styles.infoIcone}>✉️</Text><Text style={styles.infoLabel}>Email</Text><Text style={styles.infoValeur}>{v.email || "—"}</Text></View>
+                <View style={styles.infoRow}><Text style={styles.infoIcone}>👤</Text><Text style={styles.infoLabel}>Sexe</Text><Text style={styles.infoValeur}>{SEXE_LABELS[v.sexe] ?? "—"}</Text></View>
                 </View>
 
-                {/* Suivi intégration */}
                 <View style={styles.section}>
                 <Text style={styles.sectionTitre}>Suivi d'intégration</Text>
                 <View style={styles.statutsContainer}>
@@ -313,22 +246,12 @@
                     const estActif = v.statut === s.valeur;
                     const couleurs = STATUT_COULEURS[s.valeur];
                     return (
-                        <Pressable
-                        key={s.valeur}
-                        style={[
-                            styles.statutOption,
-                            { backgroundColor: estActif ? couleurs.fond : "#F8FAFC", borderColor: estActif ? couleurs.bordure : "#E2E8F0" },
-                            estActif && styles.statutOptionActif,
-                        ]}
-                        onPress={() => changerStatut(v, s.valeur)}
-                        >
+                        <Pressable key={s.valeur}
+                        style={[styles.statutOption, { backgroundColor: estActif ? couleurs.fond : "#F8FAFC", borderColor: estActif ? couleurs.bordure : "#E2E8F0" }, estActif && styles.statutOptionActif]}
+                        onPress={() => changerStatut(v, s.valeur)}>
                         <View style={{ flex: 1 }}>
-                            <Text style={[styles.statutOptionTexte, { color: estActif ? couleurs.texte : "#1E293B" }]}>
-                            {s.label}
-                            </Text>
-                            <Text style={[styles.statutOptionDesc, { color: estActif ? couleurs.texte : "#94A3B8" }]}>
-                            {s.desc}
-                            </Text>
+                            <Text style={[styles.statutOptionTexte, { color: estActif ? couleurs.texte : "#1E293B" }]}>{s.label}</Text>
+                            <Text style={[styles.statutOptionDesc, { color: estActif ? couleurs.texte : "#94A3B8" }]}>{s.desc}</Text>
                         </View>
                         {estActif && <Text style={styles.statutCheck}>✓</Text>}
                         </Pressable>
@@ -337,7 +260,6 @@
                 </View>
                 </View>
 
-                {/* Notes */}
                 {v.notes ? (
                 <View style={styles.section}>
                     <Text style={styles.sectionTitre}>Notes</Text>
@@ -345,7 +267,6 @@
                 </View>
                 ) : null}
 
-                {/* Actions */}
                 <View style={styles.actionsRow}>
                 <Pressable style={styles.btnEditer} onPress={() => ouvrirFormulaire(v)}>
                     <Text style={styles.btnEditerText}>✏️ Modifier</Text>
@@ -365,7 +286,7 @@
         );
     }
 
-    // ─── VUE FORMULAIRE ────────────────────────────────────────────────────────
+    // ── FORMULAIRE ───────────────────────────────────────────────────────────
     if (vue === "formulaire") {
         return (
         <SafeAreaView style={styles.safe}>
@@ -373,51 +294,30 @@
             <Pressable onPress={() => setVue(modeEdition ? "detail" : "liste")} style={styles.retourBtn}>
                 <Text style={styles.retourText}>‹ Retour</Text>
             </Pressable>
-            <Text style={styles.formTitre}>
-                {modeEdition ? "Modifier le visiteur" : "Nouveau visiteur"}
-            </Text>
+            <Text style={styles.formTitre}>{modeEdition ? "Modifier le visiteur" : "Nouveau visiteur"}</Text>
 
             <Text style={styles.champLabel}>Nom complet *</Text>
-            <TextInput
-                style={styles.champInput}
-                value={formulaire.nom}
+            <TextInput style={styles.champInput} value={formulaire.nom}
                 onChangeText={v => setFormulaire({ ...formulaire, nom: v })}
-                placeholder="Nom et prénom"
-                placeholderTextColor="#94A3B8"
-            />
+                placeholder="Nom et prénom" placeholderTextColor="#94A3B8" />
 
             <Text style={styles.champLabel}>Téléphone *</Text>
-            <TextInput
-                style={styles.champInput}
-                value={formulaire.telephone}
+            <TextInput style={styles.champInput} value={formulaire.telephone}
                 onChangeText={v => setFormulaire({ ...formulaire, telephone: v })}
-                keyboardType="phone-pad"
-                placeholder="06 12 34 56 78"
-                placeholderTextColor="#94A3B8"
-            />
+                keyboardType="phone-pad" placeholder="06 12 34 56 78" placeholderTextColor="#94A3B8" />
 
             <Text style={styles.champLabel}>Email</Text>
-            <TextInput
-                style={styles.champInput}
-                value={formulaire.email}
+            <TextInput style={styles.champInput} value={formulaire.email}
                 onChangeText={v => setFormulaire({ ...formulaire, email: v })}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                placeholder="email@exemple.com"
-                placeholderTextColor="#94A3B8"
-            />
+                keyboardType="email-address" autoCapitalize="none"
+                placeholder="email@exemple.com" placeholderTextColor="#94A3B8" />
 
             <Text style={styles.champLabel}>Sexe</Text>
             <View style={styles.choixRow}>
                 {SEXES.map(s => (
-                <Pressable
-                    key={s}
-                    style={[styles.choixBtn, formulaire.sexe === s && styles.choixBtnActif]}
-                    onPress={() => setFormulaire({ ...formulaire, sexe: s })}
-                >
-                    <Text style={[styles.choixBtnText, formulaire.sexe === s && styles.choixBtnTextActif]}>
-                    {SEXE_LABELS[s]}
-                    </Text>
+                <Pressable key={s} style={[styles.choixBtn, formulaire.sexe === s && styles.choixBtnActif]}
+                    onPress={() => setFormulaire({ ...formulaire, sexe: s })}>
+                    <Text style={[styles.choixBtnText, formulaire.sexe === s && styles.choixBtnTextActif]}>{SEXE_LABELS[s]}</Text>
                 </Pressable>
                 ))}
             </View>
@@ -425,39 +325,21 @@
             <Text style={styles.champLabel}>Statut</Text>
             <View style={styles.choixRow}>
                 {STATUTS.map(s => (
-                <Pressable
-                    key={s.valeur}
-                    style={[styles.choixBtn, formulaire.statut === s.valeur && styles.choixBtnActif]}
-                    onPress={() => setFormulaire({ ...formulaire, statut: s.valeur })}
-                >
-                    <Text style={[styles.choixBtnText, formulaire.statut === s.valeur && styles.choixBtnTextActif]}>
-                    {s.label}
-                    </Text>
+                <Pressable key={s.valeur} style={[styles.choixBtn, formulaire.statut === s.valeur && styles.choixBtnActif]}
+                    onPress={() => setFormulaire({ ...formulaire, statut: s.valeur })}>
+                    <Text style={[styles.choixBtnText, formulaire.statut === s.valeur && styles.choixBtnTextActif]}>{s.label}</Text>
                 </Pressable>
                 ))}
             </View>
 
             <Text style={styles.champLabel}>Notes</Text>
-            <TextInput
-                style={[styles.champInput, styles.champInputMulti]}
-                value={formulaire.notes}
+            <TextInput style={[styles.champInput, styles.champInputMulti]} value={formulaire.notes}
                 onChangeText={v => setFormulaire({ ...formulaire, notes: v })}
-                multiline
-                placeholder="Observations, contexte de la visite..."
-                placeholderTextColor="#94A3B8"
-            />
+                multiline placeholder="Observations, contexte de la visite..." placeholderTextColor="#94A3B8" />
 
-            <Pressable
-                style={[styles.btnPrimaire, sauvegarde && { opacity: 0.6 }]}
-                onPress={sauvegarder}
-                disabled={sauvegarde}
-            >
-                {sauvegarde
-                ? <ActivityIndicator color="#fff" />
-                : <Text style={styles.btnPrimaireText}>
-                    {modeEdition ? "Enregistrer les modifications" : "Ajouter le visiteur"}
-                    </Text>
-                }
+            <Pressable style={[styles.btnPrimaire, sauvegarde && { opacity: 0.6 }]} onPress={sauvegarder} disabled={sauvegarde}>
+                {sauvegarde ? <ActivityIndicator color="#fff" /> :
+                <Text style={styles.btnPrimaireText}>{modeEdition ? "Enregistrer les modifications" : "Ajouter le visiteur"}</Text>}
             </Pressable>
             </ScrollView>
         </SafeAreaView>

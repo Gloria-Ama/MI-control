@@ -56,11 +56,10 @@ class Membre(models.Model):
     sexe = models.CharField(max_length=20, choices=SEXE_CHOICES, blank=True)
     date_anniversaire = models.CharField(max_length=5, blank=True, null=True)
     adresse = models.TextField(blank=True)
-    departement = models.ForeignKey(
+    departements = models.ManyToManyField(
         Departement,
-        on_delete=models.SET_NULL,
-        null=True, blank=True,
-        related_name="membres"
+        related_name="membres",
+        blank=True,
     )
     date_integration = models.DateField(auto_now_add=True)
     statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default="actif")
@@ -122,7 +121,7 @@ class Responsable(models.Model):
     )
     mot_de_passe_change = models.BooleanField(default=False)
     actif = models.BooleanField(default=True)
-
+    photo = models.ImageField(upload_to="responsables/photos/", null=True, blank=True)
     def __str__(self):
         return f"{self.user.username} - {self.role}"
 
@@ -165,3 +164,7 @@ from .notification_model import Notification
 from .pastoral_model import SuiviPastoral
 from .budget_model import BudgetAnnuel, LigneBudget
 from .push_model import PushToken
+from .group_chat_model import MessageGroupe, SondageGroupe, OptionSondage, VoteSondage
+from .canal_model import Canal, MembreCanal, MessageCanal, LectureMessage, SondageCanal, OptionSondageCanal, VoteSondageCanal
+from .notes_model import NotePersonnelle
+from .culte_model import ProgrammeCulte, ElementProgramme

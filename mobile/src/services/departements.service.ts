@@ -19,3 +19,10 @@
     export async function deleteDepartement(id: number) {
     await api.delete(`/departements/${id}/`);
     }
+
+    export async function assignerResponsable(deptId: number, responsableId: number | null) {
+    const response = await api.post(`/departements/${deptId}/assigner-responsable/`, {
+        responsable_id: responsableId,
+    });
+    return response.data;
+    }

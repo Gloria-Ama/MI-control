@@ -14,7 +14,13 @@ from .evenement_model import Evenement
 from .notification_model import Notification
 from .pastoral_model import SuiviPastoral
 from .budget_model import BudgetAnnuel, LigneBudget
-
+from django.shortcuts import render
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse, HttpResponse
+import json
+from .notes_model import NotePersonnelle
+from .culte_model import ProgrammeCulte, ElementProgramme
+from .serializers import NotePersonnelleSerializer, ProgrammeCulteSerializer, ElementProgrammeSerializer
 from .serializers import (
     CommunauteCulteSerializer, MembreSerializer, DepartementSerializer,
     VisiteurSerializer, PresenceSerializer, ResponsableSerializer,
@@ -37,12 +43,28 @@ class DepartementViewSet(viewsets.ModelViewSet):
     serializer_class = DepartementSerializer
     permission_classes = [IsAuthenticated]
 
+    # ✅ FIX — get_queryset au bon niveau d'indentation
     def get_queryset(self):
         queryset = Departement.objects.all().select_related("communaute_culte")
         communaute = self.request.query_params.get("communaute_culte")
         if communaute:
             queryset = queryset.filter(communaute_culte__id=communaute)
         return queryset.order_by("nom")
+
+    @action(detail=True, methods=["post"], url_path="assigner-responsable")
+    def assigner_responsable(self, request, pk=None):
+        departement = self.get_object()
+        responsable_id = request.data.get("responsable_id")
+        Responsable.objects.filter(departement=departement).update(departement=None)
+        if responsable_id:
+            try:
+                resp = Responsable.objects.get(id=responsable_id)
+                resp.departement = departement
+                resp.save()
+                return Response({"detail": f"{resp.user.username} assigné au département {departement.nom}."})
+            except Responsable.DoesNotExist:
+                return Response({"detail": "Responsable introuvable."}, status=404)
+        return Response({"detail": "Responsable retiré du département."})
 
 
 # ── Membres ───────────────────────────────────────────────────────────────────
@@ -52,13 +74,15 @@ class MembreViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        queryset = Membre.objects.all().select_related("departement").prefetch_related("communautes_culte")
+        # ✅ FIX — prefetch_related("departements") au lieu de select_related("departement")
+        queryset = Membre.objects.all().prefetch_related("departements", "communautes_culte")
         search = self.request.query_params.get("search")
         if search:
             queryset = queryset.filter(nom__icontains=search)
+        # ✅ FIX — filtrer par departements (ManyToMany) au lieu de departement (FK)
         departement = self.request.query_params.get("departement")
         if departement:
-            queryset = queryset.filter(departement__id=departement)
+            queryset = queryset.filter(departements__id=departement)
         sexe = self.request.query_params.get("sexe")
         if sexe:
             queryset = queryset.filter(sexe=sexe)
@@ -201,7 +225,18 @@ class ResponsableViewSet(viewsets.ModelViewSet):
     queryset = Responsable.objects.all().select_related("user", "communaute_culte", "departement")
     serializer_class = ResponsableSerializer
     permission_classes = [IsAuthenticated]
-
+    
+    @action(detail=True, methods=["post"], url_path="photo")
+    def upload_photo(self, request, pk=None):
+        responsable = self.get_object()
+        photo = request.FILES.get("photo")
+        if not photo:
+            return Response({"detail": "Photo requise."}, status=400)
+        responsable.photo = photo
+        responsable.save()
+        return Response(
+            ResponsableSerializer(responsable, context={"request": request}).data
+    )
     def create(self, request, *args, **kwargs):
         data = request.data
         username = data.get("username", "").strip()
@@ -519,7 +554,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
         try:
             responsable = Responsable.objects.get(user=user)
             if responsable.role in ["pasteur", "administrateur", "tresoriere"]:
-                from finance.models import DemandeFinance
+                from .finances_model import DemandeFinance
                 for d in DemandeFinance.objects.filter(statut="en_attente"):
                     deja = Notification.objects.filter(
                         destinataire=user, type="finance", lien_id=d.id,
@@ -691,32 +726,19 @@ def stats_croissance(request):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def pointer_par_qr(request):
-    """Marquer un membre présent via QR Code."""
     membre_id = request.data.get("membre_id")
     date_culte = request.data.get("date")
     communaute_id = request.data.get("communaute_culte")
-
     if not membre_id or not date_culte:
-        return Response(
-            {"detail": "membre_id et date sont requis."},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
+        return Response({"detail": "membre_id et date sont requis."}, status=status.HTTP_400_BAD_REQUEST)
     try:
         membre = Membre.objects.get(id=membre_id)
     except Membre.DoesNotExist:
-        return Response(
-            {"detail": "Membre introuvable."},
-            status=status.HTTP_404_NOT_FOUND
-        )
-
+        return Response({"detail": "Membre introuvable."}, status=status.HTTP_404_NOT_FOUND)
     presence, created = Presence.objects.update_or_create(
-        membre=membre,
-        date=date_culte,
-        communaute_culte_id=communaute_id,
+        membre=membre, date=date_culte, communaute_culte_id=communaute_id,
         defaults={"present": True},
     )
-
     return Response({
         "detail": f"{membre.nom} marqué présent.",
         "membre_nom": membre.nom,
@@ -724,84 +746,539 @@ def pointer_par_qr(request):
         "presence_id": presence.id,
     })
 
-api_view(["POST"])
+
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def enregistrer_push_token(request):
-    """Enregistre le token de notification push pour l'utilisateur connecté."""
     token = request.data.get("token", "").strip()
     if not token:
         return Response({"detail": "Token requis."}, status=status.HTTP_400_BAD_REQUEST)
-
-    PushToken.objects.update_or_create(
-        user=request.user,
-        defaults={"token": token, "actif": True},
-    )
+    PushToken.objects.update_or_create(user=request.user, defaults={"token": token, "actif": True})
     return Response({"detail": "Token enregistré."})
 
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def envoyer_push(request):
-    """Envoyer une notification push à tous les responsables actifs."""
     titre = request.data.get("titre", "MI Control")
     corps = request.data.get("corps", "")
-    destinataires = request.data.get("destinataires", [])  # liste d'IDs ou "tous"
-
+    destinataires = request.data.get("destinataires", [])
     if not corps:
         return Response({"detail": "Corps du message requis."}, status=status.HTTP_400_BAD_REQUEST)
-
-    # Récupérer les tokens
     if destinataires == "tous":
         tokens = PushToken.objects.filter(actif=True).exclude(user=request.user)
     else:
         tokens = PushToken.objects.filter(user__id__in=destinataires, actif=True)
-
     if not tokens.exists():
         return Response({"detail": "Aucun destinataire avec push token.", "envoyes": 0})
-
-    # Envoyer via Expo Push API
-    messages = [
-        {
-            "to": pt.token,
-            "title": titre,
-            "body": corps,
-            "sound": "default",
-            "data": {"type": "mi_control"},
-        }
-        for pt in tokens
-    ]
-
+    messages = [{"to": pt.token, "title": titre, "body": corps, "sound": "default", "data": {"type": "mi_control"}} for pt in tokens]
     try:
-        response = http_requests.post(
-            "https://exp.host/--/api/v2/push/send",
-            json=messages,
-            headers={
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-            },
-            timeout=10,
-        )
+        http_requests.post("https://exp.host/--/api/v2/push/send", json=messages,
+            headers={"Accept": "application/json", "Content-Type": "application/json"}, timeout=10)
         return Response({"envoyes": len(messages), "detail": f"Notification envoyée à {len(messages)} appareil(s)."})
     except Exception as e:
         return Response({"detail": f"Erreur envoi: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-# ── Fonction utilitaire — envoyer push depuis n'importe où dans le code ────────
 
 def envoyer_push_utilisateur(user_id: int, titre: str, corps: str, data: dict = {}):
-    """Envoyer une notification push à un utilisateur spécifique."""
     try:
         push = PushToken.objects.get(user__id=user_id, actif=True)
-        http_requests.post(
-            "https://exp.host/--/api/v2/push/send",
-            json={
-                "to": push.token,
-                "title": titre,
-                "body": corps,
-                "sound": "default",
-                "data": data,
-            },
-            headers={"Accept": "application/json", "Content-Type": "application/json"},
-            timeout=5,
-        )
+        http_requests.post("https://exp.host/--/api/v2/push/send",
+            json={"to": push.token, "title": titre, "body": corps, "sound": "default", "data": data},
+            headers={"Accept": "application/json", "Content-Type": "application/json"}, timeout=5)
     except Exception:
         pass
+
+
+# ── Messages Groupe ───────────────────────────────────────────────────────────
+
+from .group_chat_model import MessageGroupe, SondageGroupe, OptionSondage, VoteSondage
+from .serializers import MessageGroupeSerializer, SondageGroupeSerializer
+
+class MessageGroupeViewSet(viewsets.ModelViewSet):
+    serializer_class = MessageGroupeSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = MessageGroupe.objects.select_related("auteur", "communaute_culte")
+        communaute = self.request.query_params.get("communaute_culte")
+        if communaute:
+            queryset = queryset.filter(Q(communaute_culte__id=communaute) | Q(tous_les_cultes=True))
+        return queryset.order_by("date_envoi")
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["request"] = self.request
+        return context
+
+    def create(self, request, *args, **kwargs):
+        data = request.data.copy()
+        data["auteur"] = request.user.id
+        type_msg = data.get("type", "texte")
+        if type_msg == "sondage":
+            question = data.get("question", "").strip()
+            options = data.getlist("options") or []
+            if not question:
+                return Response({"detail": "Question requise."}, status=status.HTTP_400_BAD_REQUEST)
+            if len(options) < 2:
+                return Response({"detail": "Minimum 2 options."}, status=status.HTTP_400_BAD_REQUEST)
+            msg = MessageGroupe.objects.create(auteur=request.user, communaute_culte_id=data.get("communaute_culte"),
+                tous_les_cultes=data.get("tous_les_cultes", False), contenu=question, type="sondage")
+            sondage = SondageGroupe.objects.create(message=msg, question=question)
+            for i, opt in enumerate(options):
+                OptionSondage.objects.create(sondage=sondage, texte=opt, ordre=i)
+            return Response(MessageGroupeSerializer(msg, context={"request": request}).data, status=status.HTTP_201_CREATED)
+        if type_msg in ["image", "fichier"]:
+            fichier = request.FILES.get("fichier")
+            if not fichier:
+                return Response({"detail": "Fichier requis."}, status=status.HTTP_400_BAD_REQUEST)
+            msg = MessageGroupe.objects.create(auteur=request.user, communaute_culte_id=data.get("communaute_culte"),
+                tous_les_cultes=data.get("tous_les_cultes", False), contenu=data.get("contenu", ""),
+                type=type_msg, fichier=fichier, nom_fichier=fichier.name)
+            return Response(MessageGroupeSerializer(msg, context={"request": request}).data, status=status.HTTP_201_CREATED)
+        contenu = data.get("contenu", "").strip()
+        if not contenu:
+            return Response({"detail": "Message vide."}, status=status.HTTP_400_BAD_REQUEST)
+        msg = MessageGroupe.objects.create(auteur=request.user, communaute_culte_id=data.get("communaute_culte"),
+            tous_les_cultes=data.get("tous_les_cultes", False), contenu=contenu, type="texte")
+        return Response(MessageGroupeSerializer(msg, context={"request": request}).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=["post"], url_path="voter")
+    def voter(self, request):
+        option_id = request.data.get("option_id")
+        if not option_id:
+            return Response({"detail": "option_id requis."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            option = OptionSondage.objects.get(id=option_id)
+        except OptionSondage.DoesNotExist:
+            return Response({"detail": "Option introuvable."}, status=status.HTTP_404_NOT_FOUND)
+        sondage = option.sondage
+        VoteSondage.objects.filter(votant=request.user, option__sondage=sondage).delete()
+        VoteSondage.objects.create(option=option, votant=request.user)
+        return Response(MessageGroupeSerializer(sondage.message, context={"request": request}).data)
+
+
+# ── Inscription membre ────────────────────────────────────────────────────────
+
+@csrf_exempt
+def inscription_membre(request, communaute_id):
+    try:
+        communaute = CommunauteCulte.objects.get(id=communaute_id)
+    except CommunauteCulte.DoesNotExist:
+        return HttpResponse("Communauté introuvable.", status=404)
+
+    departements = Departement.objects.filter(communaute_culte=communaute).order_by("nom")
+
+    if request.method == "GET":
+        return HttpResponse(generer_formulaire_html(communaute, departements), content_type="text/html; charset=utf-8")
+
+    if request.method == "POST":
+        try:
+            if request.content_type == "application/json":
+                data = json.loads(request.body)
+            else:
+                data = request.POST
+            nom = data.get("nom", "").strip()
+            telephone = data.get("telephone", "").strip()
+            sexe = data.get("sexe", "M").strip()
+            date_anniversaire = data.get("date_anniversaire", "").strip()
+            adresse = data.get("adresse", "").strip()
+            departement_id = data.get("departement", "").strip()
+            if not nom or not telephone:
+                return JsonResponse({"succes": False, "message": "Le nom et le téléphone sont obligatoires."}, status=400)
+            if Membre.objects.filter(telephone=telephone).exists():
+                return JsonResponse({"succes": False, "message": "Un membre avec ce numéro existe déjà."}, status=400)
+            kwargs = {"nom": nom, "telephone": telephone, "sexe": sexe, "statut": "actif"}
+            if date_anniversaire:
+                kwargs["date_anniversaire"] = date_anniversaire
+            if adresse:
+                kwargs["adresse"] = adresse
+            membre = Membre.objects.create(**kwargs)
+            membre.communautes_culte.add(communaute)
+            if departement_id:
+                try:
+                    dept = Departement.objects.get(id=departement_id)
+                    membre.departements.add(dept)
+                except Departement.DoesNotExist:
+                    pass
+            try:
+                responsables = Responsable.objects.filter(actif=True)
+                for resp in responsables:
+                    Notification.objects.create(
+                        destinataire=resp.user, type="info",
+                        titre=f"Nouveau membre inscrit — {communaute.nom}",
+                        message=f"{nom} vient de s'inscrire via le formulaire.",
+                        lien_id=membre.id,
+                    )
+            except Exception:
+                pass
+            return JsonResponse({"succes": True, "message": f"Bienvenue {nom} ! Votre inscription a été enregistrée.", "membre_id": membre.id})
+        except Exception as e:
+            return JsonResponse({"succes": False, "message": f"Erreur: {str(e)}"}, status=500)
+
+    return HttpResponse("Méthode non autorisée.", status=405)
+
+
+def generer_formulaire_html(communaute, departements):
+    options_dept = "".join(f'<option value="{d.id}">{d.nom}</option>' for d in departements)
+    return f"""<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inscription — {communaute.nom}</title>
+  <style>
+    * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F8F5F0; min-height: 100vh; }}
+    .header {{ background: #07074C; color: white; padding: 24px 20px; text-align: center; }}
+    .header h1 {{ font-size: 22px; font-weight: 700; }}
+    .header p {{ font-size: 14px; opacity: 0.8; margin-top: 4px; }}
+    .container {{ max-width: 480px; margin: 0 auto; padding: 20px; }}
+    .card {{ background: white; border-radius: 16px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 16px; }}
+    .section-title {{ font-size: 13px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }}
+    label {{ font-size: 14px; font-weight: 600; color: #1E293B; display: block; margin-bottom: 6px; }}
+    input, select {{ width: 100%; padding: 12px 14px; border: 1px solid #E2E8F0; border-radius: 10px; font-size: 15px; color: #1E293B; background: #F8F5F0; margin-bottom: 14px; -webkit-appearance: none; }}
+    input:focus, select:focus {{ outline: none; border-color: #07074C; background: white; }}
+    .radio-group {{ display: flex; gap: 12px; margin-bottom: 14px; }}
+    .radio-option {{ flex: 1; padding: 12px; border: 1.5px solid #E2E8F0; border-radius: 10px; text-align: center; cursor: pointer; font-size: 14px; font-weight: 600; color: #64748B; background: #F8F5F0; }}
+    .radio-option.selected {{ border-color: #07074C; background: #07074C; color: white; }}
+    .btn {{ width: 100%; padding: 16px; background: #07074C; color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 8px; }}
+    .success {{ background: #F0FDF4; border: 1px solid #86EFAC; border-radius: 12px; padding: 20px; text-align: center; display: none; }}
+    .success h2 {{ color: #065F46; font-size: 20px; margin-bottom: 8px; }}
+    .error-msg {{ background: #FEF2F2; border: 1px solid #FECACA; border-radius: 10px; padding: 12px; color: #991B1B; font-size: 14px; margin-bottom: 14px; display: none; }}
+    .required {{ color: #EF4444; }}
+  </style>
+</head>
+<body>
+  <div class="header"><h1>MI Control</h1><p>Inscription — {communaute.nom}</p></div>
+  <div class="container">
+    <div id="errorMsg" class="error-msg"></div>
+    <div id="successMsg" class="success"><h2>Bienvenue !</h2><p id="successText"></p></div>
+    <form id="inscriptionForm">
+      <div class="card">
+        <div class="section-title">Informations personnelles</div>
+        <label>Nom complet <span class="required">*</span></label>
+        <input type="text" name="nom" placeholder="Ex: Jean Pierre Dupont" required />
+        <label>Téléphone <span class="required">*</span></label>
+        <input type="tel" name="telephone" placeholder="Ex: +509 1234 5678" required />
+        <label>Sexe <span class="required">*</span></label>
+        <div class="radio-group">
+          <div class="radio-option selected" id="optH" onclick="choisirSexe('M')">Homme</div>
+          <div class="radio-option" id="optF" onclick="choisirSexe('F')">Femme</div>
+        </div>
+        <input type="hidden" name="sexe" id="sexeInput" value="M" />
+        <label>Date d'anniversaire (JJ/MM)</label>
+        <input type="text" name="date_anniversaire" placeholder="Ex: 15/03" maxlength="5" />
+        <label>Adresse</label>
+        <input type="text" name="adresse" placeholder="Ex: Delmas 75, Port-au-Prince" />
+      </div>
+      <div class="card">
+        <div class="section-title">Église</div>
+        <label>Département</label>
+        <select name="departement"><option value="">Aucun département</option>{options_dept}</select>
+      </div>
+      <button type="submit" class="btn">S'inscrire maintenant</button>
+    </form>
+  </div>
+  <script>
+    function choisirSexe(v) {{
+      document.getElementById('sexeInput').value = v;
+      document.getElementById('optH').classList.toggle('selected', v === 'M');
+      document.getElementById('optF').classList.toggle('selected', v === 'F');
+    }}
+    document.getElementById('inscriptionForm').addEventListener('submit', async function(e) {{
+      e.preventDefault();
+      const btn = document.querySelector('.btn');
+      btn.textContent = 'Envoi en cours...'; btn.disabled = true;
+      const data = {{}};
+      new FormData(e.target).forEach((v, k) => data[k] = v);
+      try {{
+        const res = await fetch(window.location.href, {{ method: 'POST', headers: {{'Content-Type': 'application/json'}}, body: JSON.stringify(data) }});
+        const result = await res.json();
+        if (result.succes) {{
+          document.getElementById('inscriptionForm').style.display = 'none';
+          document.getElementById('successText').textContent = result.message;
+          document.getElementById('successMsg').style.display = 'block';
+        }} else {{
+          const err = document.getElementById('errorMsg');
+          err.textContent = result.message; err.style.display = 'block';
+          btn.textContent = "S'inscrire maintenant"; btn.disabled = false;
+        }}
+      }} catch(e) {{
+        document.getElementById('errorMsg').textContent = 'Erreur de connexion.';
+        document.getElementById('errorMsg').style.display = 'block';
+        btn.textContent = "S'inscrire maintenant"; btn.disabled = false;
+      }}
+    }});
+  </script>
+</body>
+</html>"""
+
+
+# ── Canaux (Chat WhatsApp-like) ───────────────────────────────────────────────
+
+from .canal_model import Canal, MembreCanal, MessageCanal, LectureMessage, SondageCanal, OptionSondageCanal, VoteSondageCanal
+from .serializers import CanalSerializer, MessageCanalSerializer
+
+class CanalViewSet(viewsets.ModelViewSet):
+    serializer_class = CanalSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Canal.objects.filter(membres__user=self.request.user, actif=True).distinct()
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["request"] = self.request
+        return context
+
+    def create(self, request, *args, **kwargs):
+        nom = request.data.get("nom", "").strip()
+        description = request.data.get("description", "").strip()
+        type_canal = request.data.get("type", "restreint")
+        membres_ids = request.data.get("membres", [])
+        communaute_id = request.data.get("communaute_culte")
+
+        if type_canal == "prive":
+            if len(membres_ids) != 1:
+                return Response({"detail": "Une conversation privée nécessite exactement 1 destinataire."}, status=400)
+            canal_existant = Canal.objects.filter(type="prive", membres__user=request.user).filter(membres__user__id=membres_ids[0]).first()
+            if canal_existant:
+                return Response(CanalSerializer(canal_existant, context={"request": request}).data)
+
+        canal = Canal.objects.create(nom=nom, description=description, type=type_canal, createur=request.user, communaute_culte_id=communaute_id)
+        MembreCanal.objects.create(canal=canal, user=request.user, est_admin=True)
+        for mid in membres_ids:
+            try:
+                u = User.objects.get(id=mid)
+                MembreCanal.objects.get_or_create(canal=canal, user=u)
+            except User.DoesNotExist:
+                pass
+        return Response(CanalSerializer(canal, context={"request": request}).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"], url_path="ajouter-membre")
+    def ajouter_membre(self, request, pk=None):
+        canal = self.get_object()
+        user_id = request.data.get("user_id")
+        try:
+            u = User.objects.get(id=user_id)
+            MembreCanal.objects.get_or_create(canal=canal, user=u)
+            return Response({"detail": f"{u.username} ajouté."})
+        except User.DoesNotExist:
+            return Response({"detail": "Utilisateur introuvable."}, status=404)
+
+    @action(detail=True, methods=["post"], url_path="quitter")
+    def quitter(self, request, pk=None):
+        canal = self.get_object()
+        MembreCanal.objects.filter(canal=canal, user=request.user).delete()
+        return Response({"detail": "Vous avez quitté le groupe."})
+
+    @action(detail=False, methods=["post"], url_path="initialiser-principal")
+    def initialiser_principal(self, request):
+        communaute_id = request.data.get("communaute_culte")
+        try:
+            communaute = CommunauteCulte.objects.get(id=communaute_id)
+        except CommunauteCulte.DoesNotExist:
+            return Response({"detail": "Communauté introuvable."}, status=404)
+        canal, created = Canal.objects.get_or_create(
+            type="principal", communaute_culte=communaute,
+            defaults={"nom": f"Groupe — {communaute.nom}", "createur": request.user}
+        )
+        for resp in Responsable.objects.filter(actif=True):
+            MembreCanal.objects.get_or_create(canal=canal, user=resp.user)
+        MembreCanal.objects.get_or_create(canal=canal, user=request.user)
+        return Response(CanalSerializer(canal, context={"request": request}).data)
+
+
+class MessageCanalViewSet(viewsets.ModelViewSet):
+    serializer_class = MessageCanalSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        canal_id = self.request.query_params.get("canal")
+        if canal_id:
+            if not MembreCanal.objects.filter(canal__id=canal_id, user=self.request.user).exists():
+                return MessageCanal.objects.none()
+            return MessageCanal.objects.filter(canal__id=canal_id).select_related("auteur")
+        return MessageCanal.objects.none()
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["request"] = self.request
+        return context
+
+    def create(self, request, *args, **kwargs):
+        canal_id = request.data.get("canal")
+        type_msg = request.data.get("type", "texte")
+        try:
+            canal = Canal.objects.get(id=canal_id)
+            if not MembreCanal.objects.filter(canal=canal, user=request.user).exists():
+                return Response({"detail": "Vous n'êtes pas membre de ce canal."}, status=403)
+        except Canal.DoesNotExist:
+            return Response({"detail": "Canal introuvable."}, status=404)
+
+        if type_msg == "sondage":
+            question = request.data.get("question", "").strip()
+            options = request.data.getlist("options") if hasattr(request.data, 'getlist') else request.data.get("options", [])
+            if not question:
+                return Response({"detail": "Question requise."}, status=400)
+            if len([o for o in options if o.strip()]) < 2:
+                return Response({"detail": "Minimum 2 options."}, status=400)
+            msg = MessageCanal.objects.create(canal=canal, auteur=request.user, contenu=question, type="sondage")
+            sondage = SondageCanal.objects.create(message=msg, question=question)
+            for i, opt in enumerate([o for o in options if o.strip()]):
+                OptionSondageCanal.objects.create(sondage=sondage, texte=opt, ordre=i)
+            return Response(MessageCanalSerializer(msg, context={"request": request}).data, status=201)
+
+        if type_msg in ["image", "fichier"]:
+            fichier = request.FILES.get("fichier")
+            if not fichier:
+                return Response({"detail": "Fichier requis."}, status=400)
+            msg = MessageCanal.objects.create(canal=canal, auteur=request.user,
+                contenu=request.data.get("contenu", ""), type=type_msg, fichier=fichier, nom_fichier=fichier.name)
+            return Response(MessageCanalSerializer(msg, context={"request": request}).data, status=201)
+
+        contenu = request.data.get("contenu", "").strip()
+        if not contenu:
+            return Response({"detail": "Message vide."}, status=400)
+        msg = MessageCanal.objects.create(canal=canal, auteur=request.user, contenu=contenu, type="texte")
+        return Response(MessageCanalSerializer(msg, context={"request": request}).data, status=201)
+
+    @action(detail=False, methods=["post"], url_path="marquer-lus")
+    def marquer_lus(self, request):
+        canal_id = request.data.get("canal_id")
+        if not canal_id:
+            return Response({"detail": "canal_id requis."}, status=400)
+        messages = MessageCanal.objects.filter(canal__id=canal_id).exclude(auteur=request.user)
+        count = 0
+        for msg in messages:
+            _, created = LectureMessage.objects.get_or_create(message=msg, user=request.user)
+            if created:
+                count += 1
+        return Response({"marques": count})
+
+    @action(detail=False, methods=["post"], url_path="voter")
+    def voter(self, request):
+        option_id = request.data.get("option_id")
+        try:
+            option = OptionSondageCanal.objects.get(id=option_id)
+        except OptionSondageCanal.DoesNotExist:
+            return Response({"detail": "Option introuvable."}, status=404)
+        sondage = option.sondage
+        VoteSondageCanal.objects.filter(votant=request.user, option__sondage=sondage).delete()
+        VoteSondageCanal.objects.create(option=option, votant=request.user)
+        return Response(MessageCanalSerializer(sondage.message, context={"request": request}).data)
+
+
+
+# ── Notes personnelles ────────────────────────────────────────────────────────
+
+class NotePersonnelleViewSet(viewsets.ModelViewSet):
+    serializer_class = NotePersonnelleSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = NotePersonnelle.objects.filter(auteur=self.request.user)
+        recherche = self.request.query_params.get("search")
+        if recherche:
+            queryset = queryset.filter(
+                Q(titre__icontains=recherche) | Q(contenu__icontains=recherche)
+            )
+        couleur = self.request.query_params.get("couleur")
+        if couleur:
+            queryset = queryset.filter(couleur=couleur)
+        return queryset
+
+    def create(self, request, *args, **kwargs):
+        data = request.data.copy()
+        data["auteur"] = request.user.id
+        serializer = self.get_serializer(data=data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.save(auteur=request.user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"], url_path="epingler")
+    def epingler(self, request, pk=None):
+        note = self.get_object()
+        note.epinglee = not note.epinglee
+        note.save()
+        return Response({"epinglee": note.epinglee})
+
+
+# ── Gestion du culte ──────────────────────────────────────────────────────────
+
+class ProgrammeCulteViewSet(viewsets.ModelViewSet):
+    serializer_class = ProgrammeCulteSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = ProgrammeCulte.objects.prefetch_related("elements")
+        communaute = self.request.query_params.get("communaute_culte")
+        if communaute:
+            queryset = queryset.filter(communaute_culte__id=communaute)
+        return queryset
+
+    def create(self, request, *args, **kwargs):
+        data = request.data.copy()
+        data["cree_par"] = request.user.id
+        serializer = self.get_serializer(data=data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.save(cree_par=request.user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"], url_path="dupliquer")
+    def dupliquer(self, request, pk=None):
+        """Dupliquer un programme pour un nouveau culte."""
+        from datetime import date
+        programme = self.get_object()
+        nouveau = ProgrammeCulte.objects.create(
+            communaute_culte=programme.communaute_culte,
+            date=date.today(),
+            theme=programme.theme,
+            predicateur=programme.predicateur,
+            verset_cle=programme.verset_cle,
+            notes_generales="",
+            cree_par=request.user,
+        )
+        for element in programme.elements.all():
+            ElementProgramme.objects.create(
+                programme=nouveau,
+                type=element.type,
+                titre=element.titre,
+                responsable=element.responsable,
+                duree_minutes=element.duree_minutes,
+                ordre=element.ordre,
+                notes=element.notes,
+                complete=False,
+            )
+        return Response(ProgrammeCulteSerializer(nouveau).data, status=status.HTTP_201_CREATED)
+
+
+class ElementProgrammeViewSet(viewsets.ModelViewSet):
+    serializer_class = ElementProgrammeSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = ElementProgramme.objects.all()
+        programme = self.request.query_params.get("programme")
+        if programme:
+            queryset = queryset.filter(programme__id=programme)
+        return queryset
+
+    @action(detail=True, methods=["post"], url_path="cocher")
+    def cocher(self, request, pk=None):
+        """Marquer un élément comme complété pendant le culte."""
+        element = self.get_object()
+        element.complete = not element.complete
+        element.save()
+        return Response({"complete": element.complete})
+
+    @action(detail=False, methods=["post"], url_path="reordonner")
+    def reordonner(self, request):
+        """Mettre à jour l'ordre des éléments."""
+        elements = request.data.get("elements", [])
+        for item in elements:
+            ElementProgramme.objects.filter(id=item["id"]).update(ordre=item["ordre"])
+        return Response({"detail": "Ordre mis à jour."})

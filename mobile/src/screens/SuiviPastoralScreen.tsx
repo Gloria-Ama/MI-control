@@ -9,20 +9,11 @@
     import { ps2, CATEGORIE_COULEURS, STATUT_COULEURS } from "../styles/pastoral.styles";
 
     type Suivi = {
-    id: number;
-    membre: number;
-    membre_nom: string;
-    auteur: number;
-    auteur_nom: string;
-    categorie: string;
-    categorie_label: string;
-    titre: string;
-    notes: string;
-    statut: string;
-    statut_label: string;
-    confidentiel: boolean;
-    date_creation: string;
-    date_modification: string;
+    id: number; membre: number; membre_nom: string;
+    auteur: number; auteur_nom: string; categorie: string;
+    categorie_label: string; titre: string; notes: string;
+    statut: string; statut_label: string; confidentiel: boolean;
+    date_creation: string; date_modification: string;
     date_suivi_prochain: string | null;
     };
 
@@ -30,13 +21,13 @@
     type Vue = "liste" | "formulaire" | "detail";
 
     const CATEGORIES = [
-    { valeur: "sante",       label: "Santé",        icon: "heart-outline" as const },
-    { valeur: "famille",     label: "Famille",       icon: "home-outline" as const },
-    { valeur: "spirituel",   label: "Spirituel",     icon: "flower-outline" as const },
-    { valeur: "financier",   label: "Financier",     icon: "cash-outline" as const },
-    { valeur: "integration", label: "Intégration",   icon: "enter-outline" as const },
-    { valeur: "conflit",     label: "Conflit",       icon: "warning-outline" as const },
-    { valeur: "autre",       label: "Autre",         icon: "ellipsis-horizontal-outline" as const },
+    { valeur: "sante",       label: "Santé",       icon: "heart-outline" as const },
+    { valeur: "famille",     label: "Famille",      icon: "home-outline" as const },
+    { valeur: "spirituel",   label: "Spirituel",    icon: "flower-outline" as const },
+    { valeur: "financier",   label: "Financier",    icon: "cash-outline" as const },
+    { valeur: "integration", label: "Intégration",  icon: "enter-outline" as const },
+    { valeur: "conflit",     label: "Conflit",      icon: "warning-outline" as const },
+    { valeur: "autre",       label: "Autre",        icon: "ellipsis-horizontal-outline" as const },
     ];
 
     const STATUTS = [
@@ -57,7 +48,6 @@
     const [recherche, setRecherche] = useState("");
     const [membreOuvert, setMembreOuvert] = useState(false);
 
-    // Formulaire
     const [formMembreId, setFormMembreId] = useState<number | null>(null);
     const [formCategorie, setFormCategorie] = useState("autre");
     const [formTitre, setFormTitre] = useState("");
@@ -77,9 +67,7 @@
         ]);
         setSuivis(Array.isArray(s) ? s : []);
         setMembres(Array.isArray(m) ? m : []);
-        } finally {
-        setChargement(false);
-        }
+        } finally { setChargement(false); }
     }
 
     async function chargerSuivis() {
@@ -91,57 +79,34 @@
 
     function ouvrirFormulaire(suivi?: Suivi) {
         if (suivi) {
-        setModeEdition(true);
-        setSelectionne(suivi);
-        setFormMembreId(suivi.membre);
-        setFormCategorie(suivi.categorie);
-        setFormTitre(suivi.titre);
-        setFormNotes(suivi.notes);
-        setFormStatut(suivi.statut);
-        setFormDateProchain(suivi.date_suivi_prochain ?? "");
+        setModeEdition(true); setSelectionne(suivi);
+        setFormMembreId(suivi.membre); setFormCategorie(suivi.categorie);
+        setFormTitre(suivi.titre); setFormNotes(suivi.notes);
+        setFormStatut(suivi.statut); setFormDateProchain(suivi.date_suivi_prochain ?? "");
         } else {
-        setModeEdition(false);
-        setSelectionne(null);
-        setFormMembreId(null);
-        setFormCategorie("autre");
-        setFormTitre("");
-        setFormNotes("");
-        setFormStatut("ouvert");
-        setFormDateProchain("");
+        setModeEdition(false); setSelectionne(null);
+        setFormMembreId(null); setFormCategorie("autre");
+        setFormTitre(""); setFormNotes("");
+        setFormStatut("ouvert"); setFormDateProchain("");
         }
-        setMembreOuvert(false);
-        setVue("formulaire");
+        setMembreOuvert(false); setVue("formulaire");
     }
 
     async function sauvegarder() {
         if (!formMembreId) { Alert.alert("Champ requis", "Choisissez un membre."); return; }
         if (!formTitre.trim()) { Alert.alert("Champ requis", "Le titre est obligatoire."); return; }
         if (!formNotes.trim()) { Alert.alert("Champ requis", "Les notes sont obligatoires."); return; }
-
         setSauvegarde(true);
         try {
-        const donnees = {
-            membre: formMembreId,
-            categorie: formCategorie,
-            titre: formTitre.trim(),
-            notes: formNotes.trim(),
-            statut: formStatut,
-            confidentiel: true,
-            date_suivi_prochain: formDateProchain || null,
-        };
-        if (modeEdition && selectionne) {
-            await updateSuivi(selectionne.id, donnees);
-        } else {
-            await createSuivi(donnees);
-        }
+        const donnees = { membre: formMembreId, categorie: formCategorie, titre: formTitre.trim(), notes: formNotes.trim(), statut: formStatut, confidentiel: true, date_suivi_prochain: formDateProchain || null };
+        if (modeEdition && selectionne) await updateSuivi(selectionne.id, donnees);
+        else await createSuivi(donnees);
         await chargerSuivis();
         setVue("liste");
         Alert.alert("✅", modeEdition ? "Suivi modifié." : "Suivi créé.");
         } catch (err: any) {
         Alert.alert("Erreur", JSON.stringify(err?.response?.data ?? "Impossible de sauvegarder."));
-        } finally {
-        setSauvegarde(false);
-        }
+        } finally { setSauvegarde(false); }
     }
 
     async function handleChangerStatut(suivi: Suivi, statut: string) {
@@ -152,14 +117,9 @@
     async function handleSupprimer(suivi: Suivi) {
         Alert.alert("Supprimer ?", `Supprimer le suivi "${suivi.titre}" ?`, [
         { text: "Annuler", style: "cancel" },
-        {
-            text: "Supprimer", style: "destructive",
-            onPress: async () => {
-            await deleteSuivi(suivi.id);
-            await chargerSuivis();
-            setVue("liste");
-            },
-        },
+        { text: "Supprimer", style: "destructive", onPress: async () => {
+            await deleteSuivi(suivi.id); await chargerSuivis(); setVue("liste");
+        }},
         ]);
     }
 
@@ -195,36 +155,24 @@
             </Pressable>
             <Text style={ps2.formTitre}>{modeEdition ? "Modifier le suivi" : "Nouveau suivi pastoral"}</Text>
 
-            {/* Confidentialité */}
             <View style={ps2.confidentialBox}>
                 <Ionicons name="lock-closed-outline" size={18} color="#991B1B" />
-                <Text style={ps2.confidentialTexte}>
-                Ce suivi est confidentiel — visible uniquement par les pasteurs et administrateurs.
-                </Text>
+                <Text style={ps2.confidentialTexte}>Ce suivi est confidentiel — visible uniquement par les pasteurs et administrateurs.</Text>
             </View>
 
-            {/* Membre */}
             <Text style={ps2.champLabel}>Membre *</Text>
             <Pressable style={ps2.champInput} onPress={() => setMembreOuvert(!membreOuvert)}>
-                <Text style={{ color: formMembreId ? "#1E293B" : "#94A3B8", fontSize: 15 }}>
-                {nomMembre(formMembreId)}
-                </Text>
+                <Text style={{ color: formMembreId ? "#1E293B" : "#94A3B8", fontSize: 15 }}>{nomMembre(formMembreId)}</Text>
             </Pressable>
             {membreOuvert && (
                 <View style={{ backgroundColor: "#fff", borderRadius: 12, borderWidth: 0.5, borderColor: "#E2E8F0", marginBottom: 16, overflow: "hidden" }}>
-                <TextInput
-                    style={{ padding: 12, borderBottomWidth: 0.5, borderBottomColor: "#E2E8F0", fontSize: 14 }}
-                    placeholder="Rechercher un membre..."
-                    placeholderTextColor="#94A3B8"
-                    onChangeText={setRecherche}
-                />
+                <TextInput style={{ padding: 12, borderBottomWidth: 0.5, borderBottomColor: "#E2E8F0", fontSize: 14 }}
+                    placeholder="Rechercher un membre..." placeholderTextColor="#94A3B8" onChangeText={setRecherche} />
                 <ScrollView style={{ maxHeight: 200 }}>
                     {membres.filter(m => m.nom.toLowerCase().includes(recherche.toLowerCase())).map(m => (
-                    <Pressable
-                        key={m.id}
+                    <Pressable key={m.id}
                         style={{ padding: 14, borderBottomWidth: 0.5, borderBottomColor: "#F8FAFC", flexDirection: "row", justifyContent: "space-between" }}
-                        onPress={() => { setFormMembreId(m.id); setMembreOuvert(false); setRecherche(""); }}
-                    >
+                        onPress={() => { setFormMembreId(m.id); setMembreOuvert(false); setRecherche(""); }}>
                         <Text style={{ fontSize: 14, color: "#1E293B" }}>{m.nom}</Text>
                         {formMembreId === m.id && <Ionicons name="checkmark" size={16} color="#07074C" />}
                     </Pressable>
@@ -233,81 +181,41 @@
                 </View>
             )}
 
-            {/* Catégorie */}
             <Text style={ps2.champLabel}>Catégorie</Text>
             <View style={ps2.choixRow}>
                 {CATEGORIES.map(cat => (
-                <Pressable
-                    key={cat.valeur}
-                    style={[ps2.choixBtn, formCategorie === cat.valeur && ps2.choixBtnActif,
-                    formCategorie === cat.valeur && { backgroundColor: CATEGORIE_COULEURS[cat.valeur] }]}
-                    onPress={() => setFormCategorie(cat.valeur)}
-                >
-                    <Text style={[ps2.choixBtnTexte, formCategorie === cat.valeur && ps2.choixBtnTexteActif]}>
-                    {cat.label}
-                    </Text>
+                <Pressable key={cat.valeur}
+                    style={[ps2.choixBtn, formCategorie === cat.valeur && ps2.choixBtnActif, formCategorie === cat.valeur && { backgroundColor: CATEGORIE_COULEURS[cat.valeur] }]}
+                    onPress={() => setFormCategorie(cat.valeur)}>
+                    <Text style={[ps2.choixBtnTexte, formCategorie === cat.valeur && ps2.choixBtnTexteActif]}>{cat.label}</Text>
                 </Pressable>
                 ))}
             </View>
 
-            {/* Titre */}
             <Text style={ps2.champLabel}>Titre *</Text>
-            <TextInput
-                style={ps2.champInput}
-                value={formTitre}
-                onChangeText={setFormTitre}
-                placeholder="Ex: Situation de santé difficile"
-                placeholderTextColor="#94A3B8"
-            />
+            <TextInput style={ps2.champInput} value={formTitre} onChangeText={setFormTitre}
+                placeholder="Ex: Situation de santé difficile" placeholderTextColor="#94A3B8" />
 
-            {/* Notes */}
             <Text style={ps2.champLabel}>Notes confidentielles *</Text>
-            <TextInput
-                style={[ps2.champInput, ps2.champInputMulti]}
-                value={formNotes}
-                onChangeText={setFormNotes}
-                multiline
-                placeholder="Décrivez la situation, les besoins et les actions prises..."
-                placeholderTextColor="#94A3B8"
-            />
+            <TextInput style={[ps2.champInput, ps2.champInputMulti]} value={formNotes} onChangeText={setFormNotes}
+                multiline placeholder="Décrivez la situation, les besoins et les actions prises..." placeholderTextColor="#94A3B8" />
 
-            {/* Statut */}
             <Text style={ps2.champLabel}>Statut</Text>
             <View style={[ps2.choixRow, { marginBottom: 16 }]}>
                 {STATUTS.map(st => (
-                <Pressable
-                    key={st.valeur}
-                    style={[ps2.choixBtn, formStatut === st.valeur && ps2.choixBtnActif]}
-                    onPress={() => setFormStatut(st.valeur)}
-                >
-                    <Text style={[ps2.choixBtnTexte, formStatut === st.valeur && ps2.choixBtnTexteActif]}>
-                    {st.label}
-                    </Text>
+                <Pressable key={st.valeur} style={[ps2.choixBtn, formStatut === st.valeur && ps2.choixBtnActif]} onPress={() => setFormStatut(st.valeur)}>
+                    <Text style={[ps2.choixBtnTexte, formStatut === st.valeur && ps2.choixBtnTexteActif]}>{st.label}</Text>
                 </Pressable>
                 ))}
             </View>
 
-            {/* Date prochain suivi */}
             <Text style={ps2.champLabel}>Date du prochain suivi (AAAA-MM-JJ)</Text>
-            <TextInput
-                style={ps2.champInput}
-                value={formDateProchain}
-                onChangeText={setFormDateProchain}
-                placeholder="Ex: 2026-07-15"
-                placeholderTextColor="#94A3B8"
-            />
+            <TextInput style={ps2.champInput} value={formDateProchain} onChangeText={setFormDateProchain}
+                placeholder="Ex: 2026-07-15" placeholderTextColor="#94A3B8" />
 
-            <Pressable
-                style={[ps2.btnPrimaire, sauvegarde && { opacity: 0.6 }]}
-                onPress={sauvegarder}
-                disabled={sauvegarde}
-            >
-                {sauvegarde
-                ? <ActivityIndicator color="#fff" />
-                : <Text style={ps2.btnPrimaireTexte}>
-                    {modeEdition ? "Enregistrer les modifications" : "Créer le suivi"}
-                    </Text>
-                }
+            <Pressable style={[ps2.btnPrimaire, sauvegarde && { opacity: 0.6 }]} onPress={sauvegarder} disabled={sauvegarde}>
+                {sauvegarde ? <ActivityIndicator color="#fff" /> :
+                <Text style={ps2.btnPrimaireTexte}>{modeEdition ? "Enregistrer les modifications" : "Créer le suivi"}</Text>}
             </Pressable>
             </ScrollView>
         </SafeAreaView>
@@ -316,7 +224,7 @@
 
     // ── LISTE ─────────────────────────────────────────────────────────────────
     return (
-        <SafeAreaView style={ps2.safe}>
+        <SafeAreaView style={[ps2.safe, { flex: 1 }]}>
         {/* Recherche */}
         <View style={{ backgroundColor: "#fff", padding: 12, borderBottomWidth: 0.5, borderBottomColor: "#E2E8F0" }}>
             <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: "#F8F5F0", borderRadius: 10, paddingHorizontal: 10, borderWidth: 0.5, borderColor: "#E2E8F0" }}>
@@ -331,11 +239,12 @@
             </View>
         </View>
 
-        {/* Filtres statut */}
+        {/* ✅ FIX : flexGrow: 0 pour limiter la hauteur du filtre */}
         <ScrollView
-            horizontal showsHorizontalScrollIndicator={false}
-            style={ps2.filtresScroll}
-            contentContainerStyle={{ flexDirection: "row", alignItems: "center" }}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={[ps2.filtresScroll, { flexGrow: 0 }]}
+            contentContainerStyle={{ flexDirection: "row", alignItems: "center", paddingVertical: 8, paddingHorizontal: 12, gap: 8 }}
         >
             {[{ valeur: "", label: "Tous" }, ...STATUTS].map(st => (
             <Pressable
@@ -350,10 +259,11 @@
             ))}
         </ScrollView>
 
+        {/* ✅ FIX : flex: 1 pour que la liste prenne l'espace restant */}
         {chargement ? (
             <ActivityIndicator style={{ marginTop: 40 }} color="#07074C" size="large" />
         ) : (
-            <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 100 }}>
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 14, paddingBottom: 100 }}>
             {suivisFiltres.length === 0 && (
                 <Text style={ps2.videTexte}>Aucun suivi pastoral trouvé.</Text>
             )}
@@ -368,10 +278,7 @@
                 <View key={suivi.id} style={[ps2.suiviCard, { borderLeftColor: couleur }]}>
                     <View style={ps2.suiviHeader}>
                     <View style={[ps2.suiviIconeBox, { backgroundColor: couleur + "20" }]}>
-                        <Ionicons
-                        name={CATEGORIES.find(c => c.valeur === suivi.categorie)?.icon ?? "ellipsis-horizontal-outline"}
-                        size={18} color={couleur}
-                        />
+                        <Ionicons name={CATEGORIES.find(c => c.valeur === suivi.categorie)?.icon ?? "ellipsis-horizontal-outline"} size={18} color={couleur} />
                     </View>
                     <View style={{ flex: 1 }}>
                         <Text style={ps2.suiviTitre}>{suivi.titre}</Text>
@@ -386,8 +293,7 @@
                     <View style={[ps2.alerteProchain, { backgroundColor: retard ? "#FEF2F2" : "#FFFBEB" }]}>
                         <Ionicons name="alarm-outline" size={14} color={retard ? "#991B1B" : "#633806"} />
                         <Text style={[ps2.alerteProchainTexte, { color: retard ? "#991B1B" : "#633806" }]}>
-                        {retard ? "Suivi en retard — " : "Suivi prévu — "}
-                        {formatDate(suivi.date_suivi_prochain)}
+                        {retard ? "Suivi en retard — " : "Suivi prévu — "}{formatDate(suivi.date_suivi_prochain)}
                         </Text>
                     </View>
                     )}
@@ -402,37 +308,21 @@
                     <Text style={ps2.dateTexte}>{formatDate(suivi.date_modification)}</Text>
                     </View>
 
-                    {/* Actions */}
                     <View style={ps2.suiviActions}>
-                    <Pressable
-                        style={[ps2.btnAction, { backgroundColor: "#EEF2FF", borderColor: "#C7D2FE" }]}
-                        onPress={() => ouvrirFormulaire(suivi)}
-                    >
+                    <Pressable style={[ps2.btnAction, { backgroundColor: "#EEF2FF", borderColor: "#C7D2FE" }]} onPress={() => ouvrirFormulaire(suivi)}>
                         <Text style={[ps2.btnActionTexte, { color: "#4F46E5" }]}>Modifier</Text>
                     </Pressable>
-
                     {suivi.statut !== "resolu" && (
-                        <Pressable
-                        style={[ps2.btnAction, { backgroundColor: "#F0FDF4", borderColor: "#86EFAC" }]}
-                        onPress={() => handleChangerStatut(suivi, "resolu")}
-                        >
+                        <Pressable style={[ps2.btnAction, { backgroundColor: "#F0FDF4", borderColor: "#86EFAC" }]} onPress={() => handleChangerStatut(suivi, "resolu")}>
                         <Text style={[ps2.btnActionTexte, { color: "#065F46" }]}>Résolu</Text>
                         </Pressable>
                     )}
-
                     {suivi.statut !== "en_cours" && suivi.statut !== "resolu" && (
-                        <Pressable
-                        style={[ps2.btnAction, { backgroundColor: "#FFFBEB", borderColor: "#FCD34D" }]}
-                        onPress={() => handleChangerStatut(suivi, "en_cours")}
-                        >
+                        <Pressable style={[ps2.btnAction, { backgroundColor: "#FFFBEB", borderColor: "#FCD34D" }]} onPress={() => handleChangerStatut(suivi, "en_cours")}>
                         <Text style={[ps2.btnActionTexte, { color: "#633806" }]}>En cours</Text>
                         </Pressable>
                     )}
-
-                    <Pressable
-                        style={[ps2.btnAction, { backgroundColor: "#FEF2F2", borderColor: "#FECACA", flex: 0, paddingHorizontal: 12 }]}
-                        onPress={() => handleSupprimer(suivi)}
-                    >
+                    <Pressable style={[ps2.btnAction, { backgroundColor: "#FEF2F2", borderColor: "#FECACA", flex: 0, paddingHorizontal: 12 }]} onPress={() => handleSupprimer(suivi)}>
                         <Ionicons name="trash-outline" size={16} color="#EF4444" />
                     </Pressable>
                     </View>
