@@ -1,529 +1,494 @@
-    import { useEffect, useState } from "react";
-    import { Pressable, Text, TextInput, View, ScrollView } from "react-native";
-    import { membresData, Membre } from "../data/membresData";
-    import { styles } from "../styles/presences.styles";
+import { useEffect, useState } from "react";
+import {
+    View, Text, TextInput, ScrollView, Pressable,
+    Alert, ActivityIndicator, SafeAreaView,
+  KeyboardAvoidingView, Platform,
+} from "react-native";
     import { getMembres } from "../services/membres.service";
-    import { getVisiteurs, createVisiteur, deleteVisiteur } from "../services/visiteurs.service";   
     import { getDepartements } from "../services/departements.service";
-    import {getPresences,createPresence,updatePresence,} from "../services/presences.service";
+    import { getPresences, enregistrerPresencesBulk } from "../services/presences.service";
+    import { getVisiteurs, createVisiteur } from "../services/visiteurs.service";
+    import { api } from "../services/api";
+    import { styles } from "../styles/presences.styles";
 
-
-    type Props = {
-        nomCulte: string;
+    type Membre = {
+    id: number; nom: string; telephone: string;
+    sexe: string; departement: number | null; departement_nom: string | null;
     };
+    type Departement = { id: number; nom: string };
     type Visiteur = {
-        id: number;
-        nom: string;
-        telephone: string;
-        email: string;
-        sexe: string;
+    id: number; nom: string; telephone: string;
+    email: string; sexe: string; date_premiere_visite: string;
     };
+    type Presence = { id: number; membre: number; date: string; present: boolean };
+    type Vue = "pointage" | "stats" | "historique" | "visiteur";
 
-    export default function PresencesScreen({ nomCulte }: Props) {
-    const [membres, setMembres] = useState<Membre[]>([]);
-    const [membresPresents, setMembresPresents] = useState<number[]>([]);
-    const [visiteurs, setVisiteurs] = useState<Visiteur[]>([]);
-    const [nomVisiteur, setNomVisiteur] = useState("");
-    const [telephoneVisiteur, setTelephoneVisiteur] = useState("");
-    const [emailVisiteur, setEmailVisiteur] = useState("");
-    const [sexeVisiteur, setSexeVisiteur] = useState("");
-    const [departements, setDepartements] = useState<any[]>([]);
-    const [voirStats, setVoirStats] = useState(false);
-    const [afficherFormulaireVisiteur, setAfficherFormulaireVisiteur] =useState(false);
-    const [afficherChoixSexeVisiteur, setAfficherChoixSexeVisiteur] =useState(false);
+    const SEXES = ["masculin", "feminin", "autre"];
+    const SEXE_LABELS: Record<string, string> = {
+    masculin: "Masculin", feminin: "Féminin", autre: "Autre",
+    };
+    const VISITEUR_VIDE = { nom: "", telephone: "", email: "", sexe: "" };
+
+    type Props = { nomCulte: string; communauteId?: number };
+
+    export default function PresencesScreen({ nomCulte, communauteId: communauteIdProp }: Props) {
     const dateDuJour = new Date().toISOString().split("T")[0];
-    const totalHommes = membres.filter((membre) => membre.sexe === "Masculin").length;
-    const totalAutres = membres.filter((membre) => membre.sexe === "Autre").length;
-    const [presences, setPresences] = useState<any[]>([]);
-    const [voirHistorique, setVoirHistorique] = useState(false);
-    const [dateHistoriqueOuverte, setDateHistoriqueOuverte] = useState<string | null>(null);
 
+    const [membres, setMembres] = useState<Membre[]>([]);
+    const [departements, setDepartements] = useState<Departement[]>([]);
+    const [visiteurs, setVisiteurs] = useState<Visiteur[]>([]);
+    const [membresPresents, setMembresPresents] = useState<Set<number>>(new Set());
+    const [communauteId, setCommunauteId] = useState<number | undefined>(communauteIdProp);
 
+    const [vue, setVue] = useState<Vue>("pointage");
+    const [chargement, setChargement] = useState(true);
+    const [sauvegarde, setSauvegarde] = useState(false);
+    const [recherche, setRecherche] = useState("");
+    const [filtreDept, setFiltreDept] = useState<number | null>(null);
 
-    useEffect(() => {chargerMembres();chargerVisiteurs();chargerDepartements();chargerPresences();}, []);
-    useEffect(() => {chargerVisiteurs();}, []);
-    useEffect(() => {chargerMembres();chargerVisiteurs();chargerDepartements();}, []);
+    const [formulaireVisiteur, setFormulaireVisiteur] = useState(VISITEUR_VIDE);
+    const [ajoutVisiteurChargement, setAjoutVisiteurChargement] = useState(false);
 
-    async function chargerPresences() {
-        const data = await getPresences();
-        setPresences(data);
-    }
+    const [datesHistorique, setDatesHistorique] = useState<string[]>([]);
+    const [dateOuverte, setDateOuverte] = useState<string | null>(null);
+    const [presencesHistorique, setPresencesHistorique] = useState<Presence[]>([]);
+    const [chargementHistorique, setChargementHistorique] = useState(false);
 
-    async function chargerVisiteurs() {
-        const data = await getVisiteurs();
-        setVisiteurs(data);
-    }
+    useEffect(() => { chargerDonnees(); }, [communauteIdProp]);
 
-    async function chargerMembres() {
-        const data = await getMembres();
-        setMembres(data);
-    }
+    async function chargerDonnees() {
+        setChargement(true);
+        try {
+        let cid = communauteIdProp;
+        if (!cid && nomCulte) {
+            const cultes = await api.get("/communautes/").then(r => r.data).catch(() => []);
+            const culte = cultes.find((c: any) => c.nom.toLowerCase() === nomCulte.toLowerCase());
+            if (culte) { cid = culte.id; setCommunauteId(culte.id); }
+            else if (cultes.length > 0) { cid = cultes[0].id; setCommunauteId(cultes[0].id); }
+        }
 
-    async function chargerDepartements() {
-        const data = await getDepartements();
-        setDepartements(data);
-    }
+        const [m, d, v, p] = await Promise.all([
+            getMembres({ communaute_culte: cid }),
+            getDepartements(cid),
+            getVisiteurs({ date: dateDuJour, communaute_culte: cid }),
+            getPresences(dateDuJour),
+        ]);
 
-    function trouverNomDepartement(id: number | null) {
-        if (!id) return "Aucun département";
-        const dep = departements.find((d) => d.id === id);
-        return dep ? dep.nom : "Aucun département";
-    }
+        const membresData = Array.isArray(m) ? m : [];
+        setMembres(membresData);
+        setDepartements(Array.isArray(d) ? d : []);
+        setVisiteurs(Array.isArray(v) ? v : []);
 
-
-    function cocherMembre(id: number) {
-        if (membresPresents.includes(id)) {
-        setMembresPresents(membresPresents.filter((membreId) => membreId !== id));
-        } else {
-        setMembresPresents([...membresPresents, id]);
+        const membresIds = new Set(membresData.map((mb: Membre) => mb.id));
+        const dejaPresentIds = new Set<number>(
+            (Array.isArray(p) ? p : [])
+            .filter((pr: Presence) => pr.present && membresIds.has(pr.membre))
+            .map((pr: Presence) => pr.membre)
+        );
+        setMembresPresents(dejaPresentIds);
+        } catch {
+        Alert.alert("Erreur", "Impossible de charger les données.");
+        } finally {
+        setChargement(false);
         }
     }
 
-    function choisirSexeVisiteur(valeur: string) {
-        setSexeVisiteur(valeur);
-        setAfficherChoixSexeVisiteur(false);
+    async function chargerHistorique() {
+        setChargementHistorique(true);
+        try {
+        const toutes = await getPresences();
+        if (!Array.isArray(toutes)) { setDatesHistorique([]); setPresencesHistorique([]); return; }
+        const dates = [...new Set<string>(toutes.map((p: Presence) => p.date))].sort().reverse();
+        setDatesHistorique(dates);
+        setPresencesHistorique(toutes);
+        } finally { setChargementHistorique(false); }
+    }
+
+    function togglePresence(id: number) {
+        const nouveau = new Set(membresPresents);
+        if (nouveau.has(id)) nouveau.delete(id); else nouveau.add(id);
+        setMembresPresents(nouveau);
+    }
+
+    const membresFiltres = membres.filter(m =>
+        m.nom.toLowerCase().includes(recherche.toLowerCase()) &&
+        (filtreDept ? m.departement === filtreDept : true)
+    );
+
+    const nbPresents = membres.filter(m => membresPresents.has(m.id)).length;
+    const nbAbsents = Math.max(0, membres.length - nbPresents);
+    const taux = membres.length > 0 ? Math.min(100, Math.round((nbPresents / membres.length) * 100)) : 0;
+
+    function initiales(nom: string) {
+        return nom.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
+    }
+    function couleur(nom: string) {
+        const c = ["#07074C", "#4F46E5", "#0F6E56", "#854F0B", "#993C1D"];
+        return c[nom.charCodeAt(0) % c.length];
+    }
+    function nomDept(id: number | null) {
+        if (!id) return "Sans département";
+        return departements.find(d => d.id === id)?.nom ?? "—";
+    }
+
+    async function sauvegarderPresences() {
+        if (!communauteId) { Alert.alert("Erreur", "Culte non identifié."); return; }
+        setSauvegarde(true);
+        try {
+        const payload = membres.map(m => ({
+            membre: m.id, date: dateDuJour,
+            present: membresPresents.has(m.id), communaute_culte: communauteId,
+        }));
+        await enregistrerPresencesBulk(payload);
+        Alert.alert("✅ Succès", "Présences enregistrées !");
+        setVue("stats");
+        } catch {
+        Alert.alert("Erreur", "Impossible d'enregistrer.");
+        } finally { setSauvegarde(false); }
     }
 
     async function ajouterVisiteur() {
-        if (!nomVisiteur.trim() || !telephoneVisiteur.trim()) {
-            alert("Veuillez entrer le nom et le téléphone du visiteur.");
-            return;
+        if (!formulaireVisiteur.nom.trim() || !formulaireVisiteur.telephone.trim()) {
+        Alert.alert("Champs requis", "Le nom et le téléphone sont obligatoires."); return;
         }
-        const nouveauVisiteur = {
-            nom: nomVisiteur,
-            telephone: telephoneVisiteur,
-            email: emailVisiteur,
-            sexe:
-            sexeVisiteur === "Féminin"
-                ? "feminin"
-                : sexeVisiteur === "Masculin"
-                ? "masculin"
-                : sexeVisiteur === "Autre"
-                ? "autre"
-                : "",
-            communaute_culte: 1,
-            notes: "",
-        };
+        setAjoutVisiteurChargement(true);
         try {
-            await createVisiteur(nouveauVisiteur);
-            await chargerVisiteurs();
-            setNomVisiteur("");
-            setTelephoneVisiteur("");
-            setEmailVisiteur("");
-            setSexeVisiteur("");
-            setAfficherFormulaireVisiteur(false);
-            alert("Visiteur enregistré !");
-        } catch (error: any) {
-            console.log(error.response?.data || error.message);
-            alert("Erreur lors de l'enregistrement.");
-        }
+        await createVisiteur({ ...formulaireVisiteur, communaute_culte: communauteId, notes: "" });
+        const v = await getVisiteurs({ date: dateDuJour, communaute_culte: communauteId });
+        setVisiteurs(Array.isArray(v) ? v : []);
+        setFormulaireVisiteur(VISITEUR_VIDE);
+        Alert.alert("✅ Visiteur ajouté !");
+        setVue("pointage");
+        } catch {
+        Alert.alert("Erreur", "Impossible d'ajouter le visiteur.");
+        } finally { setAjoutVisiteurChargement(false); }
     }
 
-    const membresAbsents = membres.filter(
-        (membre) => !membresPresents.includes(membre.id)
-    );
-
-    const membresPresentsComplets = membres.filter((membre) =>
-        membresPresents.includes(membre.id)
-    );
-
-    const femmesPresentes = membresPresentsComplets.filter(
-        (membre) => membre.sexe === "Féminin"
-    ).length;
-
-    const hommesPresents = membresPresentsComplets.filter(
-        (membre) => membre.sexe === "Masculin"
-    ).length;
-
-    const autresPresents = membresPresentsComplets.filter(
-        (membre) => membre.sexe === "Autre"
-    ).length;
-
-    const visiteursFemmes = visiteurs.filter(
-        (visiteur) => visiteur.sexe === "Feminin"
-    ).length;
-
-    const visiteursHommes = visiteurs.filter(
-        (visiteur) => visiteur.sexe === "Masculin"
-    ).length;
-
-    const visiteursAutres = visiteurs.filter(
-        (visiteur) => visiteur.sexe === "Autre"
-    ).length;
-
-    const totalPresents = membresPresents.length + visiteurs.length;
-    const totalFemmes = membres.filter(
-    (membre) => membre.sexe === "feminin"
-    ).length;
-
-    if (voirHistorique) {
-        const datesUniques = [
-            ...new Set(presences.map((p) => p.date)),
-        ].sort().reverse();
-
+    // ── POINTAGE ──────────────────────────────────────────────────────────────
+    if (vue === "pointage") {
+        if (chargement) return <ActivityIndicator style={{ marginTop: 60 }} color="#07074C" />;
         return (
-            <ScrollView style={styles.container}>
-            <Text style={styles.title}>
-                Historique des présences
-            </Text>
-
-            {datesUniques.map((date) => {
-                const presencesDate = presences.filter(
-                (p) => p.date === date
-                );
-
-                const presents = presencesDate.filter(
-                (p) => p.present
-                );
-
-                const absents = presencesDate.filter(
-                (p) => !p.present
-                );
-
-                return (
-                <View
-                    key={date}
-                    style={styles.departmentCard}
-                >
-                    <Text style={styles.departmentTitle}>
-                    {date}
-                    </Text>
-
-                    <Text style={styles.statText}>
-                    Présents : {presents.length}
-                    </Text>
-
-                    <Text style={styles.statText}>
-                    Absents : {absents.length}
-                    </Text>
-
-                    <Pressable
-                        style={styles.secondaryButton}
-                        onPress={() =>
-                            setDateHistoriqueOuverte(
-                            dateHistoriqueOuverte === date ? null : date
-                            )
-                        }
-                        >
-                        <Text style={styles.secondaryButtonText}>
-                            En savoir plus
-                        </Text>
-                        </Pressable>
-
-                        {dateHistoriqueOuverte === date && (
-                        <View>
-                            <Text style={styles.smallTitle}>Présents</Text>
-                            {presents.map((presence) => {
-                            const membre = membres.find((m) => m.id === presence.membre);
-                            return (
-                                <Text key={presence.id}>
-                                ✅ {membre ? membre.nom : "Membre inconnu"}
-                                </Text>
-                            );
-                            })}
-
-                            <Text style={styles.smallTitle}>Absents</Text>
-                            {absents.map((presence) => {
-                            const membre = membres.find((m) => m.id === presence.membre);
-                            return (
-                                <Text key={presence.id}>
-                                ❌ {membre ? membre.nom : "Membre inconnu"}
-                                </Text>
-                            );
-                            })}
-                        </View>
-                        )}
+        <SafeAreaView style={[styles.safe, { flex: 1 }]}>
+            {/* Stats header */}
+            <View style={styles.progressContainer}>
+            <View style={styles.progressHeader}>
+                <Text style={styles.progressLabel}>{nbPresents} / {membres.length} présents</Text>
+                <View style={styles.liveTag}>
+                <Text style={styles.liveTagText}>EN DIRECT</Text>
                 </View>
-                );
-            })}
+            </View>
+            <View style={styles.progressBar}>
+                <View style={[styles.progressFill, { width: `${taux}%` as any }]} />
+            </View>
+            <View style={styles.statsRapides}>
+                <View style={styles.statPill}><Text style={styles.statPillValeur}>{nbPresents}</Text><Text style={styles.statPillLabel}>Présents</Text></View>
+                <View style={styles.statPill}><Text style={styles.statPillValeur}>{nbAbsents}</Text><Text style={styles.statPillLabel}>Absents</Text></View>
+                <View style={styles.statPill}><Text style={styles.statPillValeur}>{visiteurs.length}</Text><Text style={styles.statPillLabel}>Visiteurs</Text></View>
+                <View style={styles.statPill}><Text style={styles.statPillValeur}>{taux}%</Text><Text style={styles.statPillLabel}>Taux</Text></View>
+            </View>
+            </View>
 
-            <Pressable
-                style={styles.saveButton}
-                onPress={() => setVoirHistorique(false)}
-            >
-                <Text style={styles.saveButtonText}>
-                Retour
-                </Text>
+            {/* Recherche */}
+            <View style={styles.searchBar}>
+            <TextInput
+                style={styles.searchInput}
+                placeholder="Rechercher..."
+                placeholderTextColor="#94A3B8"
+                value={recherche}
+                onChangeText={setRecherche}
+            />
+            <Pressable style={styles.toutBtn} onPress={() => setMembresPresents(new Set(membresFiltres.map(m => m.id)))}>
+                <Text style={styles.toutBtnText}>Tout ✓</Text>
             </Pressable>
+            <Pressable style={[styles.toutBtn, { backgroundColor: "#F1F5F9" }]} onPress={() => setMembresPresents(new Set())}>
+                <Text style={[styles.toutBtnText, { color: "#475569" }]}>Effacer</Text>
+            </Pressable>
+            </View>
+
+            {/* ✅ FIX : flexGrow: 0 pour limiter la hauteur du filtre horizontal */}
+            <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={[styles.deptFiltreScroll, { flexGrow: 0 }]}
+            contentContainerStyle={{ flexDirection: "row", alignItems: "center", paddingVertical: 8 }}
+            >
+            <Pressable
+                style={[styles.deptPill, !filtreDept && styles.deptPillActif]}
+                onPress={() => setFiltreDept(null)}
+            >
+                <Text style={[styles.deptPillText, !filtreDept && styles.deptPillTextActif]}>Tous</Text>
+            </Pressable>
+            {departements.map(d => (
+                <Pressable
+                key={d.id}
+                style={[styles.deptPill, filtreDept === d.id && styles.deptPillActif]}
+                onPress={() => setFiltreDept(filtreDept === d.id ? null : d.id)}
+                >
+                <Text style={[styles.deptPillText, filtreDept === d.id && styles.deptPillTextActif]}>
+                    {d.nom}
+                </Text>
+                </Pressable>
+            ))}
             </ScrollView>
-        );
-        }
 
-    if (voirStats) {
-        return (
-        <ScrollView style={styles.container}>
-            <Text style={styles.sectionTitle}>
-                Composition de l'église
-            </Text>
-            <View style={styles.statsBox}>
-            <Text style={styles.statText}>
-                Total membres : {membres.length}
-            </Text>
-            <Text style={styles.statText}>
-                Femmes : {totalFemmes}
-            </Text>
-            <Text style={styles.statText}>
-                Hommes : {totalHommes}
-            </Text>
-            <Text style={styles.statText}>
-                Autres : {totalAutres}
-            </Text>
-            </View>
-            <Text style={styles.title}>Statistiques</Text>
-            <Text style={styles.subtitle}>{nomCulte}</Text>
-            <Text style={styles.date}>Date : {dateDuJour}</Text>
-
-            <View style={styles.statsBox}>
-            <Text style={styles.statText}>
-                Membres présents : {membresPresents.length}
-            </Text>
-            <Text style={styles.statText}>
-                Membres absents : {membresAbsents.length}
-            </Text>
-            <Text style={styles.statText}>Visiteurs : {visiteurs.length}</Text>
-            <Text style={styles.statTotal}>Total présents : {totalPresents}</Text>
-            </View>
-
-            <Text style={styles.sectionTitle}>Statistiques par sexe</Text>
-
-            <View style={styles.statsBox}>
-            <Text style={styles.statText}>
-                Femmes présentes : {femmesPresentes + visiteursFemmes}
-            </Text>
-            <Text style={styles.statText}>
-                Hommes présents : {hommesPresents + visiteursHommes}
-            </Text>
-            <Text style={styles.statText}>
-                Autres présents : {autresPresents + visiteursAutres}
-            </Text>
-            </View>
-
-            <Text style={styles.sectionTitle}>Résumé par département</Text>
-                {departements.map((departement) => {
-                const membresDuDepartement = membres.filter(
-                    (membre) => membre.departement === departement.id
-                );
-
-                const presents = membresDuDepartement.filter((membre) =>
-                    membresPresents.includes(membre.id)
-                );
-
-                const absents = membresDuDepartement.filter(
-                    (membre) => !membresPresents.includes(membre.id)
-                );
-
-                const taux =
-                    membresDuDepartement.length === 0
-                    ? 0
-                    : Math.round(
-                        (presents.length / membresDuDepartement.length) * 100
-                        );
-
-                return (
-                    <View key={departement.id} style={styles.departmentCard}>
-                    <Text style={styles.departmentTitle}>
-                        {departement.nom}
-                    </Text>
-                <Text style={styles.statText}>Présents : {presents.length}</Text>
-                <Text style={styles.statText}>Absents : {absents.length}</Text>
-                <Text style={styles.statText}>Taux de présence : {taux}%</Text>
-
-                <Text style={styles.smallTitle}>Présents</Text>
-                {presents.length === 0 ? (
-                    <Text style={styles.emptyText}>Aucun présent</Text>
-                ) : (
-                    presents.map((membre) => (
-                    <Text key={membre.id}>✅ {membre.nom}</Text>
-                    ))
-                )}
-
-                <Text style={styles.smallTitle}>Absents</Text>
-                {absents.length === 0 ? (
-                    <Text style={styles.emptyText}>Aucun absent</Text>
-                ) : (
-                    absents.map((membre) => (
-                    <Text key={membre.id}>❌ {membre.nom}</Text>
-                    ))
-                )}
-                </View>
-            );
-            })}
-
-            <Text style={styles.sectionTitle}>Visiteurs du jour</Text>
-
-            {visiteurs.length === 0 ? (
-            <Text style={styles.emptyText}>Aucun visiteur ajouté.</Text>
-            ) : (
-            visiteurs.map((visiteur) => (
-                <Text key={visiteur.id}>
-                🆕 {visiteur.nom} — {visiteur.telephone}
-                {visiteur.sexe ? ` — ${visiteur.sexe}` : ""}
+            {/* ✅ FIX : flex: 1 pour que la liste prenne l'espace restant */}
+            <ScrollView style={[styles.liste, { flex: 1 }]} contentContainerStyle={{ paddingBottom: 160 }}>
+            {membresFiltres.length === 0 && (
+                <Text style={{ textAlign: "center", color: "#94A3B8", marginTop: 30, fontStyle: "italic" }}>
+                Aucun membre pour ce culte.
                 </Text>
-            ))
             )}
+            {membresFiltres.map(m => {
+                const present = membresPresents.has(m.id);
+                return (
+                <Pressable
+                    key={m.id}
+                    style={[styles.membreRow, present && styles.membreRowPresent]}
+                    onPress={() => togglePresence(m.id)}
+                >
+                    <View style={[styles.avatar, { backgroundColor: present ? "#065F46" : couleur(m.nom) }]}>
+                    <Text style={styles.avatarText}>{initiales(m.nom)}</Text>
+                    </View>
+                    <View style={styles.membreInfo}>
+                    <Text style={styles.membreNom}>{m.nom}</Text>
+                    <Text style={styles.membreDept}>{nomDept(m.departement)}</Text>
+                    </View>
+                    <View style={[styles.checkBox, present && styles.checkBoxPresent]}>
+                    <Text style={styles.checkText}>{present ? "✓" : ""}</Text>
+                    </View>
+                </Pressable>
+                );
+            })}
+            </ScrollView>
 
-            <Pressable
-            style={styles.saveButton}
-            onPress={() => setVoirStats(false)}
-            >
-            <Text style={styles.saveButtonText}>Retour aux présences</Text>
+            <View style={styles.bottomActions}>
+            <Pressable style={styles.btnVisiteur} onPress={() => setVue("visiteur")}>
+                <Text style={styles.btnVisiteurText}>+ Visiteur</Text>
             </Pressable>
-        </ScrollView>
+            <Pressable style={styles.btnHistorique} onPress={() => { chargerHistorique(); setVue("historique"); }}>
+                <Text style={styles.btnHistoriqueText}>Historique</Text>
+            </Pressable>
+            <Pressable
+                style={[styles.btnSauvegarder, sauvegarde && { opacity: 0.6 }]}
+                onPress={sauvegarderPresences}
+                disabled={sauvegarde}
+            >
+                {sauvegarde ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnSauvegarderText}>Enregistrer</Text>}
+            </Pressable>
+            </View>
+        </SafeAreaView>
         );
     }
 
-    async function enregistrerPresences() {
-        try {
-            const presencesExistantes = await getPresences();
-            for (const membre of membres) {
-            const presenceDejaExiste = presencesExistantes.find(
-                (presence: any) =>
-                presence.membre === membre.id &&
-                presence.date === dateDuJour &&
-                presence.communaute_culte === 1
-            );
-            const dataPresence = {
-                communaute_culte: 1,
-                membre: membre.id,
-                date: dateDuJour,
-                present: membresPresents.includes(membre.id),
-            };
-            if (presenceDejaExiste) {
-                await updatePresence(presenceDejaExiste.id, dataPresence);
-            } else {
-                await createPresence(dataPresence);
-            }
-            }
-            alert("Présences enregistrées !");
-            setVoirStats(true);
-        } catch (error: any) {
-            console.log("Erreur présence :", error.response?.data || error.message);
-            alert("Erreur lors de l'enregistrement des présences.");
-        }
-}
-    return (
-        <ScrollView style={styles.container}>
-        <Text style={styles.title}>Présences</Text>
-        <Text style={styles.subtitle}>{nomCulte}</Text>
-        <Text style={styles.date}>Date : {dateDuJour}</Text>
+    // ── STATS ─────────────────────────────────────────────────────────────────
+    if (vue === "stats") {
+        const totalFemmes = membres.filter(m => m.sexe === "feminin").length;
+        const totalHommes = membres.filter(m => m.sexe === "masculin").length;
+        const femmesPresentes = membres.filter(m => m.sexe === "feminin" && membresPresents.has(m.id)).length;
+        const hommesPresents = membres.filter(m => m.sexe === "masculin" && membresPresents.has(m.id)).length;
 
-        <Text style={styles.sectionTitle}>Membres</Text>
+        return (
+        <SafeAreaView style={styles.safe}>
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={90}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+        keyboardShouldPersistTaps="handled">
+            <Pressable onPress={() => setVue("pointage")} style={styles.retourBtn}>
+                <Text style={styles.retourText}>‹ Retour au pointage</Text>
+            </Pressable>
+            <Text style={styles.titrePage}>Statistiques du culte</Text>
+            <Text style={styles.sousTitre}>{nomCulte} — {dateDuJour}</Text>
 
-        {membres.length === 0 && (
-            <Text style={styles.emptyText}>Aucun membre ajouté pour le moment.</Text>
-        )}
-
-        {membres.map((membre) => (
-            <Pressable
-            key={membre.id}
-            style={styles.memberRow}
-            onPress={() => cocherMembre(membre.id)}
-            >
-            <View>
-                <Text style={styles.memberText}>{membre.nom}</Text>
-                <Text style={styles.memberDepartment}>{trouverNomDepartement(membre.departement)}</Text>
+            <View style={styles.section}>
+                <Text style={styles.sectionTitre}>Résumé général</Text>
+                <View style={styles.statsGrid}>
+                <View style={styles.statCard}><Text style={styles.statCardValeur}>{membres.length}</Text><Text style={styles.statCardLabel}>Total membres</Text></View>
+                <View style={styles.statCard}><Text style={[styles.statCardValeur, { color: "#065F46" }]}>{nbPresents}</Text><Text style={styles.statCardLabel}>Présents</Text></View>
+                <View style={styles.statCard}><Text style={[styles.statCardValeur, { color: "#991B1B" }]}>{nbAbsents}</Text><Text style={styles.statCardLabel}>Absents</Text></View>
+                <View style={styles.statCard}><Text style={[styles.statCardValeur, { color: "#0C447C" }]}>{visiteurs.length}</Text><Text style={styles.statCardLabel}>Visiteurs</Text></View>
+                </View>
+                <View style={styles.tauxContainer}>
+                <Text style={styles.tauxLabel}>Taux de présence</Text>
+                <Text style={styles.tauxValeur}>{taux}%</Text>
+                <View style={styles.progressBar}>
+                    <View style={[styles.progressFill, { width: `${taux}%` as any, backgroundColor: "#07074C" }]} />
+                </View>
+                </View>
             </View>
 
-            <Text style={styles.checkbox}>
-                {membresPresents.includes(membre.id) ? "☑️" : "⬜"}
-            </Text>
+            <View style={styles.section}>
+                <Text style={styles.sectionTitre}>Par sexe</Text>
+                {[
+                { label: "Femmes", present: femmesPresentes, total: totalFemmes },
+                { label: "Hommes", present: hommesPresents, total: totalHommes },
+                ].map(({ label, present, total }) => {
+                const t = total > 0 ? Math.round((present / total) * 100) : 0;
+                return (
+                    <View key={label} style={styles.sexeRow}>
+                    <Text style={styles.sexeLabel}>{label}</Text>
+                    <View style={styles.sexeBarBg}><View style={[styles.sexeBarFill, { width: `${t}%` as any }]} /></View>
+                    <Text style={styles.sexeTaux}>{present}/{total}</Text>
+                    </View>
+                );
+                })}
+            </View>
+
+            <View style={styles.section}>
+                <Text style={styles.sectionTitre}>Par département</Text>
+                {departements.map(d => {
+                const membresDept = membres.filter(m => m.departement === d.id);
+                if (membresDept.length === 0) return null;
+                const presentsDept = membresDept.filter(m => membresPresents.has(m.id)).length;
+                const tauxDept = Math.round((presentsDept / membresDept.length) * 100);
+                return (
+                    <View key={d.id} style={styles.deptStatRow}>
+                    <View style={styles.deptStatInfo}>
+                        <Text style={styles.deptStatNom}>{d.nom}</Text>
+                        <Text style={styles.deptStatSub}>{presentsDept}/{membresDept.length} présents</Text>
+                    </View>
+                    <Text style={[styles.deptStatTaux, { color: tauxDept >= 70 ? "#065F46" : tauxDept >= 50 ? "#854F0B" : "#991B1B" }]}>
+                        {tauxDept}%
+                    </Text>
+                    </View>
+                );
+                })}
+            </View>
+
+            {visiteurs.length > 0 && (
+                <View style={styles.section}>
+                <Text style={styles.sectionTitre}>Visiteurs du jour ({visiteurs.length})</Text>
+                {visiteurs.map(v => (
+                    <View key={v.id} style={styles.visiteurRow}>
+                    <Text style={styles.visiteurNom}>{v.nom}</Text>
+                    <Text style={styles.visiteurInfo}>{v.telephone}</Text>
+                    </View>
+                ))}
+                </View>
+            )}
+            </ScrollView>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
+        );
+    }
+
+    // ── HISTORIQUE ────────────────────────────────────────────────────────────
+    if (vue === "historique") {
+        return (
+        <SafeAreaView style={styles.safe}>
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={90}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+        keyboardShouldPersistTaps="handled">
+            <Pressable onPress={() => setVue("pointage")} style={styles.retourBtn}>
+                <Text style={styles.retourText}>‹ Retour</Text>
             </Pressable>
-        ))}
+            <Text style={styles.titrePage}>Historique des présences</Text>
+            {chargementHistorique ? (
+                <ActivityIndicator color="#07074C" style={{ marginTop: 40 }} />
+            ) : datesHistorique.length === 0 ? (
+                <Text style={styles.videTexte}>Aucun historique trouvé.</Text>
+            ) : (
+                datesHistorique.map(date => {
+                const presencesDate = presencesHistorique.filter(p => p.date === date);
+                const presents = presencesDate.filter(p => p.present);
+                const absents = presencesDate.filter(p => !p.present);
+                const tauxDate = presencesDate.length > 0 ? Math.round((presents.length / presencesDate.length) * 100) : 0;
+                const ouvert = dateOuverte === date;
+                return (
+                    <View key={date} style={styles.histCard}>
+                    <Pressable style={styles.histHeader} onPress={() => setDateOuverte(ouvert ? null : date)}>
+                        <View>
+                        <Text style={styles.histDate}>{date}</Text>
+                        <Text style={styles.histSub}>{presents.length} présents · {absents.length} absents</Text>
+                        </View>
+                        <View style={styles.histTauxBox}>
+                        <Text style={styles.histTaux}>{tauxDate}%</Text>
+                        <Text style={styles.histChevron}>{ouvert ? "▲" : "▼"}</Text>
+                        </View>
+                    </Pressable>
+                    {ouvert && (
+                        <View style={styles.histDetail}>
+                        <Text style={styles.histSousTitre}>✅ Présents ({presents.length})</Text>
+                        {presents.map(p => {
+                            const m = membres.find(mb => mb.id === p.membre);
+                            return <Text key={p.id} style={styles.histNom}>{m?.nom ?? "Inconnu"}</Text>;
+                        })}
+                        <Text style={[styles.histSousTitre, { marginTop: 10 }]}>❌ Absents ({absents.length})</Text>
+                        {absents.map(p => {
+                            const m = membres.find(mb => mb.id === p.membre);
+                            return <Text key={p.id} style={styles.histNom}>{m?.nom ?? "Inconnu"}</Text>;
+                        })}
+                        </View>
+                    )}
+                    </View>
+                );
+                })
+            )}
+            </ScrollView>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
+        );
+    }
 
-        <Text style={styles.sectionTitle}>Visiteurs du jour</Text>
-
-        <Pressable
-            style={styles.addVisitorButton}
-            onPress={() =>
-            setAfficherFormulaireVisiteur(!afficherFormulaireVisiteur)
-            }
-        >
-            <Text style={styles.addVisitorButtonText}>🆕 Ajouter un visiteur</Text>
-        </Pressable>
-
-        {afficherFormulaireVisiteur && (
-            <>
-            <TextInput
-                style={styles.input}
-                placeholder="Nom du visiteur"
-                value={nomVisiteur}
-                onChangeText={setNomVisiteur}
-            />
-
-            <TextInput
-                style={styles.input}
-                placeholder="Téléphone du visiteur"
-                value={telephoneVisiteur}
-                onChangeText={setTelephoneVisiteur}
-                keyboardType="phone-pad"
-            />
-
-            <TextInput
-                style={styles.input}
-                placeholder="Email"
-                value={emailVisiteur}
-                onChangeText={setEmailVisiteur}
-                keyboardType="email-address"
-            />
-
-            <Text style={styles.label}>Sexe</Text>
-
-            <Pressable
-                style={styles.selectBox}
-                onPress={() =>
-                setAfficherChoixSexeVisiteur(!afficherChoixSexeVisiteur)
-                }
-            >
-                <Text style={styles.selectText}>
-                {sexeVisiteur || "Choisir le sexe"}
-                </Text>
+    // ── VISITEUR ─────────────────────────────────────────────────────────────
+    if (vue === "visiteur") {
+        return (
+        <SafeAreaView style={styles.safe}>
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={90}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+        keyboardShouldPersistTaps="handled">
+            <Pressable onPress={() => setVue("pointage")} style={styles.retourBtn}>
+                <Text style={styles.retourText}>‹ Retour</Text>
             </Pressable>
+            <Text style={styles.titrePage}>Ajouter un visiteur</Text>
 
-            {afficherChoixSexeVisiteur && (
-                <View style={styles.selectOptions}>
-                <Pressable
-                    style={styles.selectOption}
-                    onPress={() => choisirSexeVisiteur("Féminin")}
-                >
-                    <Text>Féminin</Text>
-                </Pressable>
-
-                <Pressable
-                    style={styles.selectOption}
-                    onPress={() => choisirSexeVisiteur("Masculin")}
-                >
-                    <Text>Masculin</Text>
-                </Pressable>
-
-                <Pressable
-                    style={styles.selectOption}
-                    onPress={() => choisirSexeVisiteur("Autre")}
-                >
-                    <Text>Autre</Text>
-                </Pressable>
+            {visiteurs.length > 0 && (
+                <View style={styles.section}>
+                <Text style={styles.sectionTitre}>Visiteurs du jour ({visiteurs.length})</Text>
+                {visiteurs.map(v => (
+                    <View key={v.id} style={styles.visiteurRow}>
+                    <Text style={styles.visiteurNom}>{v.nom}</Text>
+                    <Text style={styles.visiteurInfo}>{v.telephone}</Text>
+                    </View>
+                ))}
                 </View>
             )}
 
-            <Pressable style={styles.secondaryButton} onPress={ajouterVisiteur}>
-                <Text style={styles.secondaryButtonText}>
-                Enregistrer le visiteur
-                </Text>
-            </Pressable>
-            </>
-        )}
+            <View style={styles.section}>
+                <Text style={styles.sectionTitre}>Nouveau visiteur</Text>
+                <Text style={styles.champLabel}>Nom complet *</Text>
+                <TextInput style={styles.champInput} value={formulaireVisiteur.nom}
+                onChangeText={v => setFormulaireVisiteur({ ...formulaireVisiteur, nom: v })}
+                placeholder="Nom et prénom" placeholderTextColor="#94A3B8" />
+                <Text style={styles.champLabel}>Téléphone *</Text>
+                <TextInput style={styles.champInput} value={formulaireVisiteur.telephone}
+                onChangeText={v => setFormulaireVisiteur({ ...formulaireVisiteur, telephone: v })}
+                keyboardType="phone-pad" placeholder="06 12 34 56 78" placeholderTextColor="#94A3B8" />
+                <Text style={styles.champLabel}>Email</Text>
+                <TextInput style={styles.champInput} value={formulaireVisiteur.email}
+                onChangeText={v => setFormulaireVisiteur({ ...formulaireVisiteur, email: v })}
+                keyboardType="email-address" autoCapitalize="none"
+                placeholder="email@exemple.com" placeholderTextColor="#94A3B8" />
+                <Text style={styles.champLabel}>Sexe</Text>
+                <View style={{ flexDirection: "row", gap: 8, marginBottom: 16 }}>
+                {SEXES.map(s => (
+                    <Pressable key={s}
+                    style={[styles.choixBtn, formulaireVisiteur.sexe === s && styles.choixBtnActif]}
+                    onPress={() => setFormulaireVisiteur({ ...formulaireVisiteur, sexe: s })}>
+                    <Text style={[styles.choixBtnText, formulaireVisiteur.sexe === s && styles.choixBtnTextActif]}>
+                        {SEXE_LABELS[s]}
+                    </Text>
+                    </Pressable>
+                ))}
+                </View>
+                <Pressable style={[styles.btnSauvegarder, ajoutVisiteurChargement && { opacity: 0.6 }]}
+                onPress={ajouterVisiteur} disabled={ajoutVisiteurChargement}>
+                {ajoutVisiteurChargement ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnSauvegarderText}>Enregistrer le visiteur</Text>}
+                </Pressable>
+            </View>
+            </ScrollView>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
+        );
+    }
 
-        {visiteurs.map((visiteur) => (
-            <Text key={visiteur.id}>
-            🆕 {visiteur.nom} — {visiteur.telephone}
-            {visiteur.sexe ? ` — ${visiteur.sexe}` : ""}
-            </Text>
-        ))}
-        <Pressable style={styles.secondaryButton}onPress={() => setVoirHistorique(true)}>
-            <Text style={styles.secondaryButtonText}>Historique des présences</Text>
-        </Pressable>
-        <Pressable style={styles.saveButton} onPress={enregistrerPresences}>
-            <Text style={styles.saveButtonText}>Voir statistiques</Text>
-        </Pressable>
-        </ScrollView>
-    );
+    return null;
     }

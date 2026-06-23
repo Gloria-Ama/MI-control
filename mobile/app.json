@@ -1,21 +1,29 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "MI Control",
+    "slug": "mi-control",
     "version": "1.0.0",
+    "description": "Application de gestion d'église — Meta Intimacy Church",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "mobile",
-    "userInterfaceStyle": "automatic",
+    "scheme": "micontrol",
+    "userInterfaceStyle": "light",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "bundleIdentifier": "com.metaintimacy.micontrol",
+      "buildNumber": "1",
+      "supportsTablet": false,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Utilisé pour scanner les QR codes de présence et prendre des photos de profil.",
+        "NSPhotoLibraryUsageDescription": "Utilisé pour choisir des photos de profil et des pièces jointes.",
+        "NSMicrophoneUsageDescription": "Requis pour l'accès à la caméra."
+      }
     },
     "android": {
+      "package": "com.metaintimacy.micontrol",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#07074C",
+        "foregroundImage": "./assets/images/adaptive-icon.png"
       },
       "predictiveBackGestureEnabled": false
     },
@@ -28,17 +36,40 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#07074C",
+          "image": "./assets/images/splash.png",
+          "imageWidth": 400,
           "android": {
-            "image": "./assets/images/splash-icon.png",
-            "imageWidth": 76
+            "image": "./assets/images/splash.png",
+            "imageWidth": 300
           }
+        }
+      ],
+      "expo-asset",
+      "expo-font",
+      "expo-web-browser",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "MI Control utilise la caméra pour scanner les QR codes de présence."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "MI Control accède à vos photos pour les photos de profil et pièces jointes."
         }
       ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "cbe4e8b4-6c5e-40f1-9fd6-9203d8811698"
+      }
     }
   }
 }
