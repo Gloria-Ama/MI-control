@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import {
+    import {
     View, Text, ScrollView, Pressable, TextInput,
     Alert, ActivityIndicator, SafeAreaView,
   KeyboardAvoidingView, Platform,
@@ -322,6 +322,7 @@ import {
                 }
             </Pressable>
             </ScrollView>
+        </KeyboardAvoidingView>
         </SafeAreaView>
         );
     }

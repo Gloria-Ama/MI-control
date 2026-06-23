@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import {
+    import {
     View, Text, TextInput, ScrollView, Pressable,
     Alert, ActivityIndicator, SafeAreaView, Modal,
   KeyboardAvoidingView, Platform,
@@ -220,6 +220,7 @@ import {
     if (vue === "formulaire_programme") {
         return (
         <SafeAreaView style={{ flex: 1, backgroundColor: "#F8F5F0" }}>
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={90}>
             <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
         keyboardShouldPersistTaps="handled">
             <Pressable onPress={() => setVue(modeEdition ? "detail" : "liste")} style={{ marginBottom: 16 }}>
@@ -253,6 +254,7 @@ import {
                 {sauvegarde ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "700", fontSize: 16 }}>{modeEdition ? "Enregistrer" : "Créer le programme"}</Text>}
             </Pressable>
             </ScrollView>
+            </KeyboardAvoidingView>
         </SafeAreaView>
         );
     }
@@ -261,6 +263,7 @@ import {
     if (vue === "formulaire_element") {
         return (
         <SafeAreaView style={{ flex: 1, backgroundColor: "#F8F5F0" }}>
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={90}>
             <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
         keyboardShouldPersistTaps="handled">
             <Pressable onPress={() => { setVue("detail"); resetFormElement(); }} style={{ marginBottom: 16 }}>
@@ -303,6 +306,7 @@ import {
                 {sauvegarde ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "700", fontSize: 16 }}>Enregistrer</Text>}
             </Pressable>
             </ScrollView>
+            </KeyboardAvoidingView>
         </SafeAreaView>
         );
     }

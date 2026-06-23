@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import {
+    import {
     View, Text, TextInput, ScrollView, Pressable,
     Alert, ActivityIndicator, SafeAreaView,
   KeyboardAvoidingView, Platform,
@@ -345,6 +345,7 @@ import {
                 <Text style={styles.btnPrimaireText}>{modeEdition ? "Enregistrer les modifications" : "Ajouter le visiteur"}</Text>}
             </Pressable>
             </ScrollView>
+            </KeyboardAvoidingView>
         </SafeAreaView>
         );
     }

@@ -365,6 +365,7 @@ import {
                 </View>
             )}
             </ScrollView>
+            </KeyboardAvoidingView>
         </SafeAreaView>
         );
     }
@@ -422,6 +423,7 @@ import {
                 })
             )}
             </ScrollView>
+            </KeyboardAvoidingView>
         </SafeAreaView>
         );
     }
@@ -483,6 +485,7 @@ import {
                 </Pressable>
             </View>
             </ScrollView>
+            </KeyboardAvoidingView>
         </SafeAreaView>
         );
     }

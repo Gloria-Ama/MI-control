@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import {
+    import {
     View, Text, TextInput, ScrollView, Pressable,
     Alert, ActivityIndicator, SafeAreaView,
-    KeyboardAvoidingView, Platform,
+  KeyboardAvoidingView, Platform,
 } from "react-native";
     import { getMembres, createMembre, updateMembre, deleteMembre, getHistoriquePresences } from "../services/membres.service";
     import { getProfilConnecte } from "../services/auth.service";
@@ -13,8 +13,8 @@ import {
     type Membre = {
     id: number; nom: string; telephone: string; email: string;
     sexe: string; date_anniversaire: string; adresse: string;
-    departements: number[];                  //  Plusieurs départements
-    departements_noms: string[];             //  Noms des départements
+    departements: number[];                  // ✅ Plusieurs départements
+    departements_noms: string[];             // ✅ Noms des départements
     statut: string; notes: string;
     taux_presence: number | null;
     absences_recentes: number;
@@ -646,6 +646,7 @@ import {
             </Pressable>
 
             </ScrollView>
+        </KeyboardAvoidingView>
         </SafeAreaView>
         );
     }

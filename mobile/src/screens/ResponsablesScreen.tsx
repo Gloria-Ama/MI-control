@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import {
+    import {
     View, Text, TextInput, ScrollView, Pressable, Image,
     Alert, ActivityIndicator, SafeAreaView,
   KeyboardAvoidingView, Platform,
@@ -482,6 +482,7 @@ import {
                 {sauvegarde ? <ActivityIndicator color="#fff" /> : <Text style={rs.btnPrimaireTexte}>Réinitialiser</Text>}
             </Pressable>
             </ScrollView>
+        </KeyboardAvoidingView>
         </SafeAreaView>
         );
     }
@@ -623,6 +624,7 @@ import {
                 <Text style={rs.btnPrimaireTexte}>{modeEdition ? "Enregistrer les modifications" : "Créer le compte"}</Text>}
             </Pressable>
             </ScrollView>
+        </KeyboardAvoidingView>
         </SafeAreaView>
         );
     }

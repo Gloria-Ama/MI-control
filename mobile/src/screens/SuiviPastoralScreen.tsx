@@ -221,6 +221,7 @@ import {
                 <Text style={ps2.btnPrimaireTexte}>{modeEdition ? "Enregistrer les modifications" : "Créer le suivi"}</Text>}
             </Pressable>
             </ScrollView>
+            </KeyboardAvoidingView>
         </SafeAreaView>
         );
     }

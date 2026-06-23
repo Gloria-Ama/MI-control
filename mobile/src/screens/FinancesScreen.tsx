@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import {
+    import {
     View, Text, TextInput, ScrollView, Pressable, Image,
     Alert, ActivityIndicator, SafeAreaView, Modal,
   KeyboardAvoidingView, Platform,
@@ -390,6 +390,7 @@ import {
                 {sauvegarde ? <ActivityIndicator color="#fff" /> : <Text style={fs.btnSoumettreTexte}>Soumettre la demande</Text>}
             </Pressable>
             </ScrollView>
+       </KeyboardAvoidingView>
         )}
 
         {/* ── COMPTABILITÉ ─────────────────────────────────────────────────────── */}
@@ -504,6 +505,7 @@ import {
                 {sauvegarde ? <ActivityIndicator color="#fff" /> : <Text style={fs.btnSoumettreTexte}>Enregistrer</Text>}
             </Pressable>
             </ScrollView>
+      </KeyboardAvoidingView>
         )}
 
         {/* ── Modal image plein écran ───────────────────────────────────────────── */}
