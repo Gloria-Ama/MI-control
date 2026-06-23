@@ -1,66 +1,73 @@
-import { useState } from "react";
-import { Pressable, Text, View } from "react-native";
-import { choixCulteStyles } from "../styles/choixCulte.Styles";
-import DashboardScreen from "../screens/DashboardScreen";
-import LoginScreen from "../screens/LoginScreen";
+import { useState, useEffect } from "react";
+import { View, ActivityIndicator } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useEffect } from "react";
+import LoginScreen from "../screens/LoginScreen";
+import ChoixCulteScreen from "../screens/ChoixCulteScreen";
+import DashboardScreen from "../screens/DashboardScreen";
 
-
-
-export default function ChoixCulte() {
-  const [connecte, setConnecte] = useState(false);
+export default function Index() {
+  const [etat, setEtat] = useState<"chargement" | "deconnecte" | "choix" | "dashboard">("chargement");
   const [culteChoisi, setCulteChoisi] = useState<string | null>(null);
-  useEffect(() => {verifierConnexion();}, []);
+
+  useEffect(() => {
+    verifierConnexion();
+  }, []);
+
   async function verifierConnexion() {
-    const token = await AsyncStorage.getItem("accessToken");
-    if (token) {
-      setConnecte(true);
+    try {
+      const token = await AsyncStorage.getItem("accessToken");
+      if (token) {
+        setEtat("choix");
+      } else {
+        setEtat("deconnecte");
+      }
+    } catch {
+      setEtat("deconnecte");
     }
   }
 
-
-
-
-  if (!connecte) {
-    return <LoginScreen onLoginSuccess={() => setConnecte(true)} />;
+  async function seDeconnecter() {
+    await AsyncStorage.removeItem("accessToken");
+    await AsyncStorage.removeItem("refreshToken");
+    setCulteChoisi(null);
+    setEtat("deconnecte");
   }
 
-  if (culteChoisi) {
+  // ── Chargement initial ─────────────────────────────────────────────────────
+  if (etat === "chargement") {
     return (
-      <View style={{ flex: 1 }}>
-        <DashboardScreen nomCulte={culteChoisi} />
-
-        <Pressable onPress={() => setCulteChoisi(null)}>
-          <Text style={{ textAlign: "center", marginBottom: 30 }}>
-            Retour
-          </Text>
-        </Pressable>
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#07074C" }}>
+        <ActivityIndicator color="#FFFFFF" size="large" />
       </View>
     );
   }
 
+  // ── Pas connecté ───────────────────────────────────────────────────────────
+  if (etat === "deconnecte") {
+    return (
+      <LoginScreen onLoginSuccess={() => setEtat("choix")} />
+    );
+  }
+
+  // ── Choix du culte ─────────────────────────────────────────────────────────
+  if (etat === "choix" || !culteChoisi) {
+    return (
+      <ChoixCulteScreen
+        onCulteChoisi={(culte) => {
+          setCulteChoisi(culte);
+          setEtat("dashboard");
+        }}
+        onDeconnexion={seDeconnecter}
+      />
+    );
+  }
+
+  // ── Dashboard ──────────────────────────────────────────────────────────────
   return (
-    <View style={choixCulteStyles.container}>
-      <Text style={choixCulteStyles.title}>MI Control</Text>
-
-      <Text style={choixCulteStyles.subtitle}>
-        Choisissez votre espace de culte
-      </Text>
-
-      <Pressable
-        style={choixCulteStyles.button}
-        onPress={() => setCulteChoisi("Culte du dimanche")}
-      >
-        <Text style={choixCulteStyles.buttonText}>Culte du dimanche</Text>
-      </Pressable>
-
-      <Pressable
-        style={choixCulteStyles.button}
-        onPress={() => setCulteChoisi("Culte du jeudi")}
-      >
-        <Text style={choixCulteStyles.buttonText}>Culte du jeudi</Text>
-      </Pressable>
-    </View>
+    <DashboardScreen
+      nomCulte={culteChoisi}
+      onRetour={() => setEtat("choix")}
+      onDeconnexion={seDeconnecter}
+    />
   );
 }
