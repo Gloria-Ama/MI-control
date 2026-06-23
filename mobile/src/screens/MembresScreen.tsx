@@ -1,8 +1,9 @@
-    import { useEffect, useState } from "react";
-    import {
+import { useEffect, useState } from "react";
+import {
     View, Text, TextInput, ScrollView, Pressable,
     Alert, ActivityIndicator, SafeAreaView,
-    } from "react-native";
+    KeyboardAvoidingView, Platform,
+} from "react-native";
     import { getMembres, createMembre, updateMembre, deleteMembre, getHistoriquePresences } from "../services/membres.service";
     import { getProfilConnecte } from "../services/auth.service";
     import { api } from "../services/api";
@@ -12,8 +13,8 @@
     type Membre = {
     id: number; nom: string; telephone: string; email: string;
     sexe: string; date_anniversaire: string; adresse: string;
-    departements: number[];                  // ✅ Plusieurs départements
-    departements_noms: string[];             // ✅ Noms des départements
+    departements: number[];                  //  Plusieurs départements
+    departements_noms: string[];             //  Noms des départements
     statut: string; notes: string;
     taux_presence: number | null;
     absences_recentes: number;
@@ -240,7 +241,8 @@
             {chargement ? (
             <ActivityIndicator style={{ marginTop: 40 }} color="#07074C" size="large" />
             ) : (
-            <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 100 }}>
+            <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 100 }}
+        keyboardShouldPersistTaps="handled">
                 <Text style={s.compteLabel}>
                 {membresFiltres.length} membre{membresFiltres.length > 1 ? "s" : ""}
                 {nomCulte ? ` — ${nomCulte}` : ""}
@@ -294,7 +296,8 @@
 
         return (
         <SafeAreaView style={s.safe}>
-            <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
+            <ScrollView contentContainerStyle={{ paddingBottom: 100 }}
+        keyboardShouldPersistTaps="handled">
             <View style={s.detailHeader}>
                 <Pressable onPress={() => setVue("liste")} style={s.retourBtn}>
                 <Text style={s.retourText}>‹ Retour</Text>
@@ -403,7 +406,9 @@
 
         return (
         <SafeAreaView style={s.safe}>
-            <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 120 }}>
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={90}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 120 }}
+        keyboardShouldPersistTaps="handled">
 
             <Pressable onPress={() => setVue(modeEdition ? "detail" : "liste")} style={s.retourBtn}>
                 <Text style={s.retourText}>‹ Retour</Text>

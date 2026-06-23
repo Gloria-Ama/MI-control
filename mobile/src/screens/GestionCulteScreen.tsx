@@ -1,8 +1,9 @@
-    import { useEffect, useState } from "react";
-    import {
+import { useEffect, useState } from "react";
+import {
     View, Text, TextInput, ScrollView, Pressable,
     Alert, ActivityIndicator, SafeAreaView, Modal,
-    } from "react-native";
+  KeyboardAvoidingView, Platform,
+} from "react-native";
     import { api } from "../services/api";
 
     type Element = {
@@ -219,7 +220,8 @@
     if (vue === "formulaire_programme") {
         return (
         <SafeAreaView style={{ flex: 1, backgroundColor: "#F8F5F0" }}>
-            <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}>
+            <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+        keyboardShouldPersistTaps="handled">
             <Pressable onPress={() => setVue(modeEdition ? "detail" : "liste")} style={{ marginBottom: 16 }}>
                 <Text style={{ color: "#64748B", fontSize: 15 }}>‹ Retour</Text>
             </Pressable>
@@ -259,7 +261,8 @@
     if (vue === "formulaire_element") {
         return (
         <SafeAreaView style={{ flex: 1, backgroundColor: "#F8F5F0" }}>
-            <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}>
+            <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+        keyboardShouldPersistTaps="handled">
             <Pressable onPress={() => { setVue("detail"); resetFormElement(); }} style={{ marginBottom: 16 }}>
                 <Text style={{ color: "#64748B", fontSize: 15 }}>‹ Retour</Text>
             </Pressable>
@@ -313,7 +316,8 @@
 
         return (
         <SafeAreaView style={{ flex: 1, backgroundColor: "#F8F5F0" }}>
-            <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
+            <ScrollView contentContainerStyle={{ paddingBottom: 100 }}
+        keyboardShouldPersistTaps="handled">
             {/* Header */}
             <View style={{ backgroundColor: "#07074C", padding: 20, paddingTop: 16 }}>
                 <Pressable onPress={() => setVue("liste")} style={{ marginBottom: 12 }}>

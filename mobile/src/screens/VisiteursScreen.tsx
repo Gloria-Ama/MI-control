@@ -1,8 +1,9 @@
-    import { useEffect, useState } from "react";
-    import {
+import { useEffect, useState } from "react";
+import {
     View, Text, TextInput, ScrollView, Pressable,
     Alert, ActivityIndicator, SafeAreaView,
-    } from "react-native";
+  KeyboardAvoidingView, Platform,
+} from "react-native";
     import {
     getVisiteurs, createVisiteur, updateVisiteur,
     deleteVisiteur, convertirEnMembre,
@@ -219,7 +220,8 @@
         const v = visiteurSelectionne;
         return (
         <SafeAreaView style={styles.safe}>
-            <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
+            <ScrollView contentContainerStyle={{ paddingBottom: 100 }}
+        keyboardShouldPersistTaps="handled">
             <View style={styles.detailHeader}>
                 <Pressable onPress={() => setVue("liste")} style={styles.retourBtn}>
                 <Text style={styles.retourText}>‹ Retour</Text>
@@ -290,7 +292,8 @@
     if (vue === "formulaire") {
         return (
         <SafeAreaView style={styles.safe}>
-            <ScrollView style={styles.formContainer} contentContainerStyle={{ paddingBottom: 100 }}>
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={90}>
+            <ScrollView style={styles.formContainer} contentContainerStyle={{ paddingBottom: 100 }} keyboardShouldPersistTaps="handled">
             <Pressable onPress={() => setVue(modeEdition ? "detail" : "liste")} style={styles.retourBtn}>
                 <Text style={styles.retourText}>‹ Retour</Text>
             </Pressable>

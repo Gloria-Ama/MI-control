@@ -1,8 +1,9 @@
-    import { useEffect, useState } from "react";
-    import {
+import { useEffect, useState } from "react";
+import {
     View, Text, TextInput, ScrollView, Pressable, Image,
     Alert, ActivityIndicator, SafeAreaView,
-    } from "react-native";
+  KeyboardAvoidingView, Platform,
+} from "react-native";
     import * as ImagePicker from "expo-image-picker";
     import {
     getResponsables, createResponsable, updateResponsable,
@@ -312,7 +313,8 @@
             {chargement ? (
             <ActivityIndicator style={{ marginTop: 40 }} color="#07074C" size="large" />
             ) : (
-            <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 100 }}>
+            <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 100 }}
+        keyboardShouldPersistTaps="handled">
                 <Text style={rs.compteLabel}>{responsablesFiltres.length} responsable{responsablesFiltres.length > 1 ? "s" : ""}</Text>
                 {responsablesFiltres.length === 0 && <Text style={rs.videTexte}>Aucun responsable trouvé.</Text>}
                 {responsablesFiltres.map(r => (
@@ -345,7 +347,8 @@
         const r = selectionne;
         return (
         <SafeAreaView style={rs.safe}>
-            <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
+            <ScrollView contentContainerStyle={{ paddingBottom: 100 }}
+        keyboardShouldPersistTaps="handled">
             <View style={rs.detailHeader}>
                 <Pressable onPress={() => setVue("liste")} style={rs.retourBtn}>
                 <Text style={rs.retourText}>‹ Retour</Text>
@@ -454,7 +457,9 @@
     if (vue === "mdp" && selectionne) {
         return (
         <SafeAreaView style={rs.safe}>
-            <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}>
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={90}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+        keyboardShouldPersistTaps="handled">
             <Pressable onPress={() => setVue("detail")} style={rs.retourBtn}>
                 <Text style={[rs.retourText, { color: "#64748B" }]}>‹ Retour</Text>
             </Pressable>
@@ -485,7 +490,9 @@
     if (vue === "formulaire") {
         return (
         <SafeAreaView style={rs.safe}>
-            <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 120 }}>
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={90}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 120 }}
+        keyboardShouldPersistTaps="handled">
             <Pressable onPress={() => setVue(modeEdition ? "detail" : "liste")} style={rs.retourBtn}>
                 <Text style={[rs.retourText, { color: "#64748B" }]}>‹ Retour</Text>
             </Pressable>

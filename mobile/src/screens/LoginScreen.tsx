@@ -1,5 +1,7 @@
-    import { useState } from "react";
-    import { View, Text, TextInput, Pressable, Alert, ActivityIndicator } from "react-native";
+import { useState } from "react";
+    import { View, Text, TextInput, Pressable, Alert, ActivityIndicator,
+  KeyboardAvoidingView, Platform,
+} from "react-native";
     import { api } from "../services/api";
     import { styles } from "../styles/login.styles";
     import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -41,6 +43,7 @@
     }
 
     return (
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <View style={styles.container}>
         <Text style={styles.title}>MI Control</Text>
         <Text style={styles.subtitle}>Espace responsables</Text>
@@ -80,5 +83,6 @@
             )}
         </Pressable>
         </View>
+        </KeyboardAvoidingView>
     );
     }

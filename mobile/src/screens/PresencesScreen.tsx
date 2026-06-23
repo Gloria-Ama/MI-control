@@ -1,8 +1,9 @@
-    import { useEffect, useState } from "react";
-    import {
+import { useEffect, useState } from "react";
+import {
     View, Text, TextInput, ScrollView, Pressable,
     Alert, ActivityIndicator, SafeAreaView,
-    } from "react-native";
+  KeyboardAvoidingView, Platform,
+} from "react-native";
     import { getMembres } from "../services/membres.service";
     import { getDepartements } from "../services/departements.service";
     import { getPresences, enregistrerPresencesBulk } from "../services/presences.service";
@@ -288,7 +289,9 @@
 
         return (
         <SafeAreaView style={styles.safe}>
-            <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}>
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={90}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+        keyboardShouldPersistTaps="handled">
             <Pressable onPress={() => setVue("pointage")} style={styles.retourBtn}>
                 <Text style={styles.retourText}>‹ Retour au pointage</Text>
             </Pressable>
@@ -370,7 +373,9 @@
     if (vue === "historique") {
         return (
         <SafeAreaView style={styles.safe}>
-            <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}>
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={90}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+        keyboardShouldPersistTaps="handled">
             <Pressable onPress={() => setVue("pointage")} style={styles.retourBtn}>
                 <Text style={styles.retourText}>‹ Retour</Text>
             </Pressable>
@@ -425,7 +430,9 @@
     if (vue === "visiteur") {
         return (
         <SafeAreaView style={styles.safe}>
-            <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}>
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={90}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+        keyboardShouldPersistTaps="handled">
             <Pressable onPress={() => setVue("pointage")} style={styles.retourBtn}>
                 <Text style={styles.retourText}>‹ Retour</Text>
             </Pressable>

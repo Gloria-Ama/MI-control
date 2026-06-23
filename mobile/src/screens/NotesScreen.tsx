@@ -1,9 +1,9 @@
-    import { useEffect, useState, useRef } from "react";
-    import {
+import { useEffect, useState, useRef } from "react";
+import {
     View, Text, TextInput, ScrollView, Pressable,
     Alert, ActivityIndicator, SafeAreaView, KeyboardAvoidingView, Platform,
     } from "react-native";
-    import { api } from "../services/api";
+import { api } from "../services/api";
 
     type Note = {
     id: number;

@@ -1,8 +1,9 @@
-    import { useEffect, useState } from "react";
-    import {
+import { useEffect, useState } from "react";
+import {
     View, Text, TextInput, ScrollView, Pressable, Image,
     Alert, ActivityIndicator, SafeAreaView, Modal,
-    } from "react-native";
+  KeyboardAvoidingView, Platform,
+} from "react-native";
     import * as ImagePicker from "expo-image-picker";
     import {
     getDemandes, createDemande, approuverDemande, refuserDemande, rembourserDemande,
@@ -321,7 +322,8 @@
 
         {/* ── NOUVELLE DEMANDE ──────────────────────────────────────────────────── */}
         {onglet === "nouvelle_demande" && (
-            <ScrollView style={[fs.formulaire, { flex: 1 }]} contentContainerStyle={{ paddingBottom: 100 }}>
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={90}>
+      <ScrollView style={[fs.formulaire, { flex: 1 }]} contentContainerStyle={{ paddingBottom: 100 }} keyboardShouldPersistTaps="handled">
             <Text style={fs.formTitre}>Nouvelle demande</Text>
             <Text style={fs.champLabel}>Type</Text>
             <View style={fs.typeRow}>
@@ -460,7 +462,8 @@
 
         {/* ── NOUVELLE TRANSACTION ──────────────────────────────────────────────── */}
         {onglet === "nouvelle_transaction" && (
-            <ScrollView style={[fs.formulaire, { flex: 1 }]} contentContainerStyle={{ paddingBottom: 100 }}>
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={90}>
+      <ScrollView style={[fs.formulaire, { flex: 1 }]} contentContainerStyle={{ paddingBottom: 100 }} keyboardShouldPersistTaps="handled">
             <Text style={fs.formTitre}>Enregistrer une transaction</Text>
             <Text style={fs.champLabel}>Type de transaction</Text>
             <View style={{ marginBottom: 16 }}>

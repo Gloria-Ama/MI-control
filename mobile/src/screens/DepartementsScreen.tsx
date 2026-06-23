@@ -1,8 +1,9 @@
-    import { useEffect, useState } from "react";
-    import {
+import { useEffect, useState } from "react";
+import {
     View, Text, TextInput, ScrollView, Pressable,
     Alert, ActivityIndicator, SafeAreaView, Modal, StyleSheet,
-    } from "react-native";
+  KeyboardAvoidingView, Platform,
+} from "react-native";
     import { Ionicons } from "@expo/vector-icons";
     import { api } from "../services/api";
     import { getResponsables } from "../services/responsables.service";
@@ -265,7 +266,9 @@
     if (vue === "formulaire") {
         return (
         <SafeAreaView style={s.safe}>
-            <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 80 }}>
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={90}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 80 }}
+        keyboardShouldPersistTaps="handled">
             <Pressable onPress={() => setVue(selectionne ? "detail" : "liste")} style={{ marginBottom: 16 }}>
                 <Text style={{ color: "#64748B", fontSize: 15 }}>‹ Retour</Text>
             </Pressable>
@@ -337,7 +340,8 @@
         const style = getDeptStyle(selectionne.nom);
         return (
         <SafeAreaView style={s.safe}>
-            <ScrollView contentContainerStyle={{ paddingBottom: 80 }}>
+            <ScrollView contentContainerStyle={{ paddingBottom: 80 }}
+        keyboardShouldPersistTaps="handled">
             {/* Header département */}
             <View style={[s.deptHeader, { backgroundColor: style.couleur }]}>
                 <Pressable onPress={() => setVue("liste")} style={{ marginBottom: 16 }}>
@@ -478,7 +482,8 @@
         {chargement ? (
             <ActivityIndicator style={{ marginTop: 40 }} color="#07074C" size="large" />
         ) : (
-            <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 100 }}>
+            <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 100 }}
+        keyboardShouldPersistTaps="handled">
             {departements.length === 0 && (
                 <Text style={s.videTexte}>Aucun département. Créez le premier !</Text>
             )}

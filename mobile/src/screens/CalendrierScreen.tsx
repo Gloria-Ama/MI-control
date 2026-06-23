@@ -1,8 +1,9 @@
-    import { useEffect, useState } from "react";
-    import {
+import { useEffect, useState } from "react";
+import {
     View, Text, ScrollView, Pressable, TextInput,
     Alert, ActivityIndicator, SafeAreaView,
-    } from "react-native";
+  KeyboardAvoidingView, Platform,
+} from "react-native";
     import { getEvenements, createEvenement, updateEvenement, deleteEvenement } from "../services/calendrier.service";
     import { getProfilConnecte } from "../services/auth.service";
     import { api } from "../services/api";
@@ -213,7 +214,9 @@
     if (vue === "formulaire") {
         return (
         <SafeAreaView style={cal.safe}>
-            <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}>
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={90}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+        keyboardShouldPersistTaps="handled">
             <Pressable onPress={() => setVue("calendrier")} style={cal.retourBtn}>
                 <Text style={cal.retourText}>‹ Retour</Text>
             </Pressable>
@@ -410,7 +413,8 @@
         </View>
 
         {/* Liste événements */}
-        <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
+        <ScrollView contentContainerStyle={{ paddingBottom: 100 }}
+        keyboardShouldPersistTaps="handled">
             <Text style={cal.listeTitre}>
             {jourSelectionne
                 ? formatDate(jourSelectionne)

@@ -1,4 +1,4 @@
-    import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, Pressable, StyleSheet } from "react-native";
 
     type Props = {
     onCulteChoisi: (culte: string) => void;

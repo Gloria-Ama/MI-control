@@ -1,8 +1,9 @@
-    import { useEffect, useState } from "react";
-    import {
+import { useEffect, useState } from "react";
+import {
     View, Text, TextInput, ScrollView, Pressable,
     Alert, ActivityIndicator, SafeAreaView,
-    } from "react-native";
+  KeyboardAvoidingView, Platform,
+} from "react-native";
     import { Ionicons } from "@expo/vector-icons";
     import {
     getBudgets, createBudget, createLigne,
@@ -182,7 +183,9 @@
     if (vue === "nouvelle_ligne" || vue === "modifier_ligne") {
         return (
         <SafeAreaView style={bs.safe}>
-            <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}>
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={90}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+        keyboardShouldPersistTaps="handled">
             <Pressable onPress={() => setVue("budget")} style={{ marginBottom: 16 }}>
                 <Text style={{ color: "#64748B", fontSize: 15 }}>‹ Retour</Text>
             </Pressable>
@@ -321,7 +324,8 @@
             </Pressable>
             </View>
         ) : (
-            <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
+            <ScrollView contentContainerStyle={{ paddingBottom: 100 }}
+        keyboardShouldPersistTaps="handled">
             {/* Résumé */}
             <View style={bs.resumeCard}>
                 <Text style={bs.resumeTitre}>Résumé budgétaire {annee}</Text>

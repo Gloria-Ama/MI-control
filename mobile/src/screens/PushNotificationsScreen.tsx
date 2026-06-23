@@ -1,8 +1,9 @@
-    import { useEffect, useState } from "react";
-    import {
+import { useEffect, useState } from "react";
+import {
     View, Text, Pressable, ScrollView, TextInput,
     Alert, ActivityIndicator, SafeAreaView, StyleSheet, Switch,
-    } from "react-native";
+  KeyboardAvoidingView, Platform,
+} from "react-native";
     import { Ionicons } from "@expo/vector-icons";
     import {
     enregistrerPushNotifications,
@@ -82,7 +83,9 @@
 
     return (
         <SafeAreaView style={s.safe}>
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60 }}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={90}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60 }}
+        keyboardShouldPersistTaps="handled">
 
             {/* Statut */}
             <View style={[s.statutCard, { backgroundColor: tokenActif ? "#F0FDF4" : "#FFFBEB" }]}>
@@ -197,6 +200,7 @@
             )}
 
         </ScrollView>
+        </KeyboardAvoidingView>
         </SafeAreaView>
     );
     }

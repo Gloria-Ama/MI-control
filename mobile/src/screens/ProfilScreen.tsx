@@ -1,8 +1,9 @@
-    import { useEffect, useState } from "react";
-    import {
+import { useEffect, useState } from "react";
+import {
     View, Text, TextInput, ScrollView, Pressable,
     Alert, ActivityIndicator, SafeAreaView,
-    } from "react-native";
+  KeyboardAvoidingView, Platform,
+} from "react-native";
     import { getProfilConnecte, changerMotDePasse, updateProfil } from "../services/profil.service";
     import { ps } from "../styles/profil.styles";
 
@@ -124,7 +125,9 @@
 
     return (
         <SafeAreaView style={ps.safe}>
-        <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={90}>
+        <ScrollView contentContainerStyle={{ paddingBottom: 100 }} keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="handled">
 
             {/* Header */}
             <View style={ps.header}>
@@ -317,6 +320,7 @@
             </View>
             )}
         </ScrollView>
+        </KeyboardAvoidingView>
         </SafeAreaView>
     );
     }
