@@ -68,7 +68,6 @@
       ]
     ],
     "experiments": {
-      "baseUrl": "/MI-control",
       "typedRoutes": true,
       "reactCompiler": true
     },
