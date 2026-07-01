@@ -5,19 +5,20 @@
     "owner": "gloriaama",
     "version": "1.0.0",
     "description": "Application de gestion d'église — Meta Intimacy Church",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "micontrol",
     "userInterfaceStyle": "light",
     "ios": {
       "bundleIdentifier": "com.metaintimacy.micontrol",
       "buildNumber": "1",
-      "supportsTablet": false,
+      "supportsTablet": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "Utilisé pour scanner les QR codes de présence et prendre des photos de profil.",
         "NSPhotoLibraryUsageDescription": "Utilisé pour choisir des photos de profil et des pièces jointes.",
-        "NSMicrophoneUsageDescription": "Requis pour l'accès à la caméra."
+        "NSMicrophoneUsageDescription": "Requis pour l'accès à la caméra.",
+        "UIRequiresFullScreen": false
       }
     },
     "android": {
@@ -76,6 +77,9 @@
       "eas": {
         "projectId": "cbe4e8b4-6c5e-40f1-9fd6-9203d8811698"
       }
+    },
+    "mac": {
+      "bundleIdentifier": "com.metaintimacy.micontrol.mac"
     }
   }
 }

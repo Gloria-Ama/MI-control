@@ -94,7 +94,7 @@ import { useEffect, useRef, useState } from "react";
             <Text style={s.permTitre}>Accès caméra requis</Text>
             <Text style={s.permSub}>Pour scanner les QR codes des membres</Text>
             <Pressable style={s.btnPrimaire} onPress={requestPermission}>
-                <Text style={s.btnPrimaireTexte}>Autoriser la caméra</Text>
+                <Text style={s.btnPrimaireTexte}>Continuer</Text>
             </Pressable>
             </View>
         );

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, Text, ScrollView, Pressable, SafeAreaView, StatusBar, StyleSheet } from "react-native";
+import { View, Text, ScrollView, Pressable, SafeAreaView, StatusBar, StyleSheet, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "../services/api";
 import ExportPDFScreen from "./ExportPDFScreen";
@@ -47,6 +47,10 @@ type SousModule =
   | null;
 
 export default function DashboardScreen({ nomCulte, onRetour, onDeconnexion }: Props) {
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
+  const cardWidth = isTablet ? "30%" : "47%";
+  const numColumns = isTablet ? 3 : 2;
   const [onglet, setOnglet] = useState<OngletNav>("accueil");
   const [sousModule, setSousModule] = useState<SousModule>(null);
   const [membres, setMembres] = useState<any[]>([]);
@@ -505,48 +509,48 @@ export default function DashboardScreen({ nomCulte, onRetour, onDeconnexion }: P
         <Text style={[s.sectionTitre, { marginBottom: 10 }]}>Accès rapide</Text>
         <View style={s.raccourcisGrid}>
           {peutVoir("membres") && (
-            <Pressable style={s.raccourciCard} onPress={() => setOnglet("membres")}>
+            <Pressable style={[s.raccourciCard, { width: cardWidth }]} onPress={() => setOnglet("membres")}>
               <Ionicons name="people-outline" size={28} color="#07074C" />
               <Text style={s.raccourciNom}>Membres</Text>
             </Pressable>
           )}
           {peutVoir("presences") && (
-            <Pressable style={s.raccourciCard} onPress={() => setOnglet("presences")}>
+            <Pressable style={[s.raccourciCard, { width: cardWidth }]} onPress={() => setOnglet("presences")}>
               <Ionicons name="checkmark-circle-outline" size={28} color="#07074C" />
               <Text style={s.raccourciNom}>Présences</Text>
             </Pressable>
           )}
           {peutVoir("visiteurs") && (
-            <Pressable style={s.raccourciCard} onPress={() => setSousModule("visiteurs")}>
+            <Pressable style={[s.raccourciCard, { width: cardWidth }]} onPress={() => setSousModule("visiteurs")}>
               <Ionicons name="person-add-outline" size={28} color="#07074C" />
               <Text style={s.raccourciNom}>Visiteurs</Text>
             </Pressable>
           )}
           {peutVoir("finances") && (
-            <Pressable style={s.raccourciCard} onPress={() => setOnglet("finances")}>
+            <Pressable style={[s.raccourciCard, { width: cardWidth }]} onPress={() => setOnglet("finances")}>
               <Ionicons name="cash-outline" size={28} color="#07074C" />
               <Text style={s.raccourciNom}>Finances</Text>
             </Pressable>
           )}
 
           {/* ✅ Gestion du culte — accès rapide */}
-          <Pressable style={s.raccourciCard} onPress={() => setSousModule("culte")}>
+          <Pressable style={[s.raccourciCard, { width: cardWidth }]} onPress={() => setSousModule("culte")}>
             <Text style={{ fontSize: 28 }}>⛪</Text>
             <Text style={s.raccourciNom}>Culte</Text>
           </Pressable>
 
           {/* ✅ Notes — accès rapide */}
-          <Pressable style={s.raccourciCard} onPress={() => setSousModule("notes")}>
+          <Pressable style={[s.raccourciCard, { width: cardWidth }]} onPress={() => setSousModule("notes")}>
             <Text style={{ fontSize: 28 }}>📝</Text>
             <Text style={s.raccourciNom}>Mes notes</Text>
           </Pressable>
 
-          <Pressable style={s.raccourciCard} onPress={() => setSousModule("croissance")}>
+          <Pressable style={[s.raccourciCard, { width: cardWidth }]} onPress={() => setSousModule("croissance")}>
             <Ionicons name="trending-up-outline" size={28} color="#07074C" />
             <Text style={s.raccourciNom}>Croissance</Text>
           </Pressable>
 
-          <Pressable style={s.raccourciCard} onPress={() => setSousModule("chat")}>
+          <Pressable style={[s.raccourciCard, { width: cardWidth }]} onPress={() => setSousModule("chat")}>
             <View style={{ position: "relative" }}>
               <Ionicons name="chatbubbles-outline" size={28} color="#07074C" />
               {chatNonLus > 0 && (
@@ -637,7 +641,7 @@ const s = StyleSheet.create({
   anniversaireItem: { fontSize: 13, color: "#1E293B", paddingVertical: 3 },
   videTexte: { fontSize: 13, color: "#94A3B8", fontStyle: "italic" },
   raccourcisGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  raccourciCard: { width: "47%", backgroundColor: "#fff", borderRadius: 14, padding: 16, alignItems: "center", gap: 8, borderWidth: 0.5, borderColor: "#E2E8F0" },
+  raccourciCard: { width: "47%", backgroundColor: "#fff", borderRadius: 14, padding: 16, alignItems: "center", gap: 8, borderWidth: 0.5, borderColor: "#E2E8F0" }, // dynamic in render
   raccourciNom: { fontSize: 13, fontWeight: "700", color: "#1E293B" },
   moduleCard: { backgroundColor: "#fff", borderRadius: 14, padding: 14, flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 8, borderWidth: 0.5, borderColor: "#E2E8F0" },
   moduleIconeBox: { width: 40, height: 40, borderRadius: 10, backgroundColor: "#F1F5F9", alignItems: "center", justifyContent: "center" },
